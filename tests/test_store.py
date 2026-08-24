@@ -1,0 +1,457 @@
+"""Pruebas de productos, carrito, cobro y sus pantallas."""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+
+import pytest
+
+from gym.config import Settings
+from gym.services import products as products_service
+from gym.services import sales as service
+from gym.services.errors import (
+    InsufficientStockError,
+    NotFoundError,
+    ServiceError,
+    ValidationError,
+)
+from gym.services.sales import Cart
+from gym.services.visits import VisitRange
+from gym.ui.main_window import MainWindow
+from gym.ui.pages.products import ProductDialog, ProductsPage
+from gym.ui.pages.sales import SalesPage
+
+
+@pytest.fixture
+def window(qtbot, app_db):
+    window = MainWindow(Settings())
+    qtbot.addWidget(window)
+    return window
+
+
+def producto(nombre="Agua", precio=1500, stock=10, activo=True) -> int:
+    return products_service.create_product(
+        products_service.ProductForm(name=nombre, price_cents=precio, stock=stock, is_active=activo)
+    )
+
+
+class TestCatalogo:
+    def test_crea_un_producto(self, app_db):
+        producto()
+        rows, total = products_service.list_products()
+        assert total == 1 and rows[0].name == "Agua"
+
+    def test_producto_sin_control_de_inventario(self, app_db):
+        product_id = producto(stock=None)
+        assert products_service.get_product(product_id).stock is None
+
+    @pytest.mark.parametrize(
+        ("nombre", "precio", "stock", "campo"),
+        [
+            ("", 1500, 10, "name"),
+            ("Agua", -1, 10, "price"),
+            ("Agua", 1500, -5, "stock"),
+        ],
+    )
+    def test_valida_los_datos(self, app_db, nombre, precio, stock, campo):
+        with pytest.raises(ValidationError) as exc:
+            producto(nombre, precio, stock)
+        assert campo in exc.value.errors
+
+    def test_admite_producto_gratuito(self, app_db):
+        product_id = producto(precio=0)
+        assert products_service.get_product(product_id).price_cents == 0
+
+    def test_activa_y_desactiva(self, app_db):
+        product_id = producto()
+        products_service.set_active(product_id, False)
+        assert not products_service.get_product(product_id).is_active
+
+    def test_filtra_solo_disponibles(self, app_db):
+        producto("Agua", activo=True)
+        producto("Barra", activo=False)
+
+        _, total = products_service.list_products(only_active=True)
+        assert total == 1
+
+    def test_busca_por_nombre(self, app_db):
+        producto("Agua natural")
+        producto("Barra proteica")
+
+        _, total = products_service.list_products(search="barra")
+        assert total == 1
+
+    def test_ajusta_el_inventario(self, app_db):
+        product_id = producto(stock=10)
+        assert products_service.adjust_stock(product_id, 5) == 15
+        assert products_service.adjust_stock(product_id, -12) == 3
+
+    def test_el_inventario_no_queda_negativo(self, app_db):
+        product_id = producto(stock=3)
+        with pytest.raises(ServiceError):
+            products_service.adjust_stock(product_id, -10)
+
+    def test_no_ajusta_productos_sin_control(self, app_db):
+        product_id = producto(stock=None)
+        with pytest.raises(ServiceError, match="control de inventario"):
+            products_service.adjust_stock(product_id, 5)
+
+    def test_borra_un_producto_sin_ventas(self, app_db):
+        product_id = producto()
+        products_service.delete_product(product_id)
+        with pytest.raises(NotFoundError):
+            products_service.get_product(product_id)
+
+    def test_no_borra_un_producto_vendido(self, app_db):
+        product_id = producto()
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 1)
+        service.checkout(cart)
+
+        with pytest.raises(ServiceError, match="Desactívalo"):
+            products_service.delete_product(product_id)
+
+    def test_productos_vendibles_excluye_agotados_e_inactivos(self, app_db):
+        producto("Disponible", stock=5)
+        producto("Agotado", stock=0)
+        producto("Desactivado", stock=5, activo=False)
+        producto("Sin control", stock=None)
+
+        nombres = {p.name for p in products_service.sellable_products()}
+        assert nombres == {"Disponible", "Sin control"}
+
+    def test_stock_bajo(self, app_db):
+        producto("Casi agotado", stock=2)
+        producto("Con inventario", stock=50)
+        producto("Sin control", stock=None)
+
+        bajos = products_service.low_stock(threshold=5)
+        assert [p.name for p in bajos] == ["Casi agotado"]
+
+
+class TestCarrito:
+    def test_agrega_y_suma(self, app_db):
+        cart = Cart()
+        cart.add(products_service.get_product(producto("Agua", 1500)), 2)
+
+        assert cart.item_count == 2
+        assert cart.total_cents == 3000
+
+    def test_agregar_dos_veces_acumula(self, app_db):
+        product = products_service.get_product(producto("Agua", 1500))
+        cart = Cart()
+        cart.add(product, 1)
+        cart.add(product, 2)
+
+        assert len(cart.lines) == 1
+        assert cart.item_count == 3
+
+    def test_no_pasa_del_stock_disponible(self, app_db):
+        product = products_service.get_product(producto("Agua", 1500, stock=3))
+        cart = Cart()
+
+        with pytest.raises(InsufficientStockError, match="Quedan 3"):
+            cart.add(product, 4)
+
+    def test_acumular_tampoco_pasa_del_stock(self, app_db):
+        product = products_service.get_product(producto("Agua", stock=3))
+        cart = Cart()
+        cart.add(product, 2)
+
+        with pytest.raises(InsufficientStockError):
+            cart.add(product, 2)
+
+    def test_producto_sin_control_no_tiene_tope(self, app_db):
+        product = products_service.get_product(producto("Agua", stock=None))
+        cart = Cart()
+        cart.add(product, 500)
+        assert cart.item_count == 500
+
+    def test_cambiar_cantidad_a_cero_quita_la_linea(self, app_db):
+        product_id = producto("Agua")
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 3)
+        cart.set_quantity(product_id, 0)
+
+        assert cart.is_empty
+
+    def test_rechaza_cantidad_no_positiva(self, app_db):
+        product = products_service.get_product(producto())
+        cart = Cart()
+        with pytest.raises(ValidationError):
+            cart.add(product, 0)
+
+    def test_vaciar_el_carrito(self, app_db):
+        cart = Cart()
+        cart.add(products_service.get_product(producto()), 1)
+        cart.clear()
+        assert cart.is_empty
+
+
+class TestCobro:
+    def test_registra_la_venta_y_descuenta_stock(self, app_db):
+        product_id = producto("Agua", 1500, stock=10)
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 3)
+
+        sale_id = service.checkout(cart)
+
+        venta = service.get_sale(sale_id)
+        assert venta.total_cents == 4500
+        assert products_service.get_product(product_id).stock == 7
+
+    def test_guarda_el_nombre_y_precio_del_momento(self, app_db):
+        """El ticket de hoy no debe cambiar si manana suben el precio."""
+        product_id = producto("Agua", 1500, stock=10)
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 1)
+        sale_id = service.checkout(cart)
+
+        products_service.update_product(
+            product_id,
+            products_service.ProductForm(name="Agua Premium", price_cents=3000, stock=9),
+        )
+
+        linea = service.get_sale(sale_id).lines[0]
+        assert linea.product_name == "Agua"
+        assert linea.product_price_cents == 1500
+
+    def test_revalida_el_stock_al_cobrar(self, app_db):
+        """El carrito guarda el stock que vio; el cobro consulta el real."""
+        product_id = producto("Agua", 1500, stock=10)
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 8)
+
+        # Alguien ajusta el inventario despues de armar el carrito.
+        products_service.adjust_stock(product_id, -5)
+
+        with pytest.raises(InsufficientStockError, match="Quedan 5"):
+            service.checkout(cart)
+
+    def test_si_falla_no_deja_la_venta_a_medias(self, app_db):
+        bueno = producto("Agua", 1500, stock=10)
+        malo = producto("Barra", 2500, stock=10)
+
+        cart = Cart()
+        cart.add(products_service.get_product(bueno), 2)
+        cart.add(products_service.get_product(malo), 5)
+
+        products_service.adjust_stock(malo, -8)
+
+        with pytest.raises(InsufficientStockError):
+            service.checkout(cart)
+
+        _, ventas = service.list_sales(VisitRange.ALL)
+        assert ventas == 0
+        assert products_service.get_product(bueno).stock == 10
+
+    def test_producto_borrado_entre_carrito_y_cobro(self, app_db):
+        product_id = producto("Agua")
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 1)
+        products_service.delete_product(product_id)
+
+        with pytest.raises(NotFoundError):
+            service.checkout(cart)
+
+    def test_carrito_vacio(self, app_db):
+        with pytest.raises(ServiceError, match="vacío"):
+            service.checkout(Cart())
+
+    def test_producto_sin_control_no_altera_inventario(self, app_db):
+        product_id = producto("Agua", stock=None)
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 5)
+        service.checkout(cart)
+
+        assert products_service.get_product(product_id).stock is None
+
+    def test_totales_del_periodo(self, app_db):
+        product_id = producto("Agua", 1500, stock=100)
+        for _ in range(3):
+            cart = Cart()
+            cart.add(products_service.get_product(product_id), 2)
+            service.checkout(cart)
+
+        totales = service.totals(VisitRange.TODAY)
+        assert totales.count == 3
+        assert totales.items == 6
+        assert totales.revenue_cents == 9000
+
+    def test_las_ventas_viejas_no_cuentan_hoy(self, app_db):
+        product_id = producto("Agua", 1500, stock=100)
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 1)
+        service.checkout(cart, sold_at=datetime.now() - timedelta(days=40))
+
+        assert service.totals(VisitRange.TODAY).count == 0
+        assert service.totals(VisitRange.ALL).count == 1
+
+    def test_productos_mas_vendidos(self, app_db):
+        agua = producto("Agua", 1500, stock=100)
+        barra = producto("Barra", 2500, stock=100)
+
+        cart = Cart()
+        cart.add(products_service.get_product(agua), 5)
+        cart.add(products_service.get_product(barra), 1)
+        service.checkout(cart)
+
+        top = service.top_products(VisitRange.TODAY)
+        assert top[0][0] == "Agua"
+        assert top[0][1] == 5
+
+
+class TestPantallaProductos:
+    def test_lista_los_productos(self, qtbot, window):
+        producto("Agua")
+        producto("Barra")
+
+        page = ProductsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        assert page.table.model.rowCount() == 2
+        assert page.stat_total.value_label.text() == "2"
+
+    def test_cuenta_los_de_stock_bajo(self, qtbot, window):
+        producto("Casi agotado", stock=1)
+        producto("Con inventario", stock=100)
+
+        page = ProductsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        assert page.stat_low.value_label.text() == "1"
+
+    def test_crear_desde_el_dialogo(self, qtbot, window):
+        dialog = ProductDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Agua")
+        dialog.price_input.setText("15")
+        dialog.stock_input.setValue(20)
+        dialog.accept()
+
+        rows, _ = products_service.list_products()
+        assert rows[0].name == "Agua" and rows[0].stock == 20
+
+    def test_producto_sin_control_de_inventario(self, qtbot, window):
+        dialog = ProductDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Servicio")
+        dialog.price_input.setText("50")
+        dialog.track_stock.setChecked(False)
+        dialog.accept()
+
+        rows, _ = products_service.list_products()
+        assert rows[0].stock is None
+
+    def test_precio_invalido_muestra_error(self, qtbot, window):
+        dialog = ProductDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Agua")
+        dialog.price_input.setText("abc")
+        dialog.accept()
+
+        assert dialog.result() == 0
+        assert dialog.price_field.error.isVisibleTo(dialog)
+
+    def test_nombre_vacio_muestra_error(self, qtbot, window):
+        dialog = ProductDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.price_input.setText("15")
+        dialog.accept()
+
+        assert dialog.result() == 0
+        assert dialog.name_field.error.isVisibleTo(dialog)
+
+    def test_sin_seleccion_no_falla(self, qtbot, window):
+        page = ProductsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        page.edit_selected()
+        page.delete_selected()
+        page.toggle_selected()
+
+
+class TestPantallaVentas:
+    def _page(self, qtbot, window):
+        page = SalesPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+        return page
+
+    def test_muestra_el_catalogo_vendible(self, qtbot, window):
+        producto("Disponible", stock=5)
+        producto("Agotado", stock=0)
+
+        page = self._page(qtbot, window)
+        assert page.catalog_table.model.rowCount() == 1
+
+    def test_agregar_al_carrito_actualiza_el_total(self, qtbot, window):
+        product_id = producto("Agua", 1500, stock=10)
+        page = self._page(qtbot, window)
+        page.add_to_cart(products_service.get_product(product_id), 2)
+
+        assert page.cart.item_count == 2
+        assert page.total_label.text() == "$30.00"
+        assert page.checkout_button.isEnabled()
+
+    def test_no_deja_pasar_del_stock(self, qtbot, window):
+        product_id = producto("Agua", 1500, stock=2)
+        page = self._page(qtbot, window)
+        page.add_to_cart(products_service.get_product(product_id), 5)
+
+        assert page.cart.is_empty
+
+    def test_cobrar_vacia_el_carrito_y_refresca(self, qtbot, window, monkeypatch):
+        monkeypatch.setattr("gym.ui.pages.sales.confirm", lambda *a, **k: True)
+
+        product_id = producto("Agua", 1500, stock=10)
+        page = self._page(qtbot, window)
+        page.add_to_cart(products_service.get_product(product_id), 2)
+        page.checkout()
+
+        assert page.cart.is_empty
+        assert not page.checkout_button.isEnabled()
+        assert page.history_table.model.rowCount() == 1
+        assert products_service.get_product(product_id).stock == 8
+
+    def test_cobrar_con_stock_agotado_avisa(self, qtbot, window, monkeypatch):
+        monkeypatch.setattr("gym.ui.pages.sales.confirm", lambda *a, **k: True)
+
+        product_id = producto("Agua", 1500, stock=10)
+        page = self._page(qtbot, window)
+        page.add_to_cart(products_service.get_product(product_id), 8)
+        products_service.adjust_stock(product_id, -9)
+
+        page.checkout()
+
+        assert not page.cart.is_empty
+        assert page.history_table.model.rowCount() == 0
+
+    def test_quitar_una_linea(self, qtbot, window):
+        product_id = producto("Agua", 1500, stock=10)
+        page = self._page(qtbot, window)
+        page.add_to_cart(products_service.get_product(product_id), 2)
+
+        page.cart.remove(product_id)
+        page.render_cart()
+
+        assert page.cart.is_empty
+        assert page.total_label.text() == "$0.00"
+
+    def test_historial_muestra_los_totales(self, qtbot, window):
+        product_id = producto("Agua", 1500, stock=10)
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 2)
+        service.checkout(cart)
+
+        page = self._page(qtbot, window)
+        assert "$30.00" in page.history_summary.text()
+
+    def test_sin_seleccion_no_falla(self, qtbot, window):
+        page = self._page(qtbot, window)
+        page.add_selected()
+        page.remove_from_cart()
+        page.open_detail()

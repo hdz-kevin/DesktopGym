@@ -1,0 +1,224 @@
+"""Pruebas de las pantallas de membresias y precios."""
+
+from __future__ import annotations
+
+from datetime import date
+
+import pytest
+
+from gym.config import Settings
+from gym.domain.enums import DurationUnit, MemberGender, MembershipStatus
+from gym.services import members as members_service
+from gym.services import memberships as service
+from gym.ui.dialogs.membership_form import MembershipFormDialog, RenewMembershipDialog
+from gym.ui.dialogs.membership_history import MembershipHistoryDialog
+from gym.ui.main_window import MainWindow
+from gym.ui.pages.memberships import MembershipsPage
+from gym.ui.pages.prices import DurationDialog, MembershipTypeDialog, PricesPage
+
+
+@pytest.fixture
+def window(qtbot, app_db):
+    window = MainWindow(Settings(gym_name="Gimnasio de Prueba"))
+    qtbot.addWidget(window)
+    return window
+
+
+def alta(nombre="Ana Lopez") -> int:
+    return members_service.create_member(
+        members_service.MemberForm(name=nombre, gender=MemberGender.FEMALE)
+    )
+
+
+class TestMembershipsPage:
+    def test_lista_las_membresias(self, qtbot, window, app_catalog):
+        service.create_membership(alta("Ana Lopez"), app_catalog["monthly_id"])
+        service.create_membership(alta("Beto Ruiz"), app_catalog["monthly_id"])
+
+        page = MembershipsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        assert page.table.model.rowCount() == 2
+        assert page.stat_active.value_label.text() == "2"
+
+    def test_filtra_por_vencidas(self, qtbot, window, app_catalog):
+        service.create_membership(alta("Vigente"), app_catalog["monthly_id"])
+        service.create_membership(
+            alta("Vencida"), app_catalog["monthly_id"], start=date(2020, 1, 1)
+        )
+
+        page = MembershipsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+        page._on_filter(MembershipStatus.EXPIRED)
+
+        assert page.table.model.rowCount() == 1
+        assert page.table.model.record_at(0).member.name == "Vencida"
+
+    def test_busca_por_socio(self, qtbot, window, app_catalog):
+        service.create_membership(alta("Ana Lopez"), app_catalog["monthly_id"])
+        service.create_membership(alta("Beto Ruiz"), app_catalog["monthly_id"])
+
+        page = MembershipsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+        page._on_search("beto")
+
+        assert page.table.model.rowCount() == 1
+
+    def test_avisa_si_no_hay_duraciones(self, qtbot, app_db):
+        window = MainWindow(Settings())
+        qtbot.addWidget(window)
+        page = MembershipsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        page.create_membership()
+        assert page.table.model.rowCount() == 0
+
+    def test_sin_seleccion_no_falla(self, qtbot, window, app_catalog):
+        page = MembershipsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        page.renew_selected()
+        page.open_history()
+
+
+class TestMembershipFormDialog:
+    def test_requiere_socio(self, qtbot, window, app_catalog):
+        dialog = MembershipFormDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.accept()
+
+        assert dialog.membership_id is None
+        assert dialog.member_field.error.isVisibleTo(dialog)
+
+    def test_registra_la_membresia(self, qtbot, window, app_catalog):
+        member_id = alta()
+        dialog = MembershipFormDialog(window, member_id=member_id)
+        qtbot.addWidget(dialog)
+        dialog.accept()
+
+        assert dialog.membership_id is not None
+        membership = service.get_membership(dialog.membership_id)
+        assert membership.member_id == member_id
+        assert len(membership.periods) == 1
+
+    def test_muestra_la_vista_previa_de_vigencia(self, qtbot, window, app_catalog):
+        dialog = MembershipFormDialog(window, member_id=alta())
+        qtbot.addWidget(dialog)
+
+        assert "Vigencia:" in dialog.preview.text()
+        assert "Importe:" in dialog.preview.text()
+
+    def test_el_buscador_encuentra_socios(self, qtbot, window, app_catalog):
+        alta("Ana Lopez")
+        dialog = MembershipFormDialog(window)
+        qtbot.addWidget(dialog)
+        dialog._search_members("ana")
+
+        assert dialog.results.count() == 1
+
+
+class TestRenewDialog:
+    def test_sugiere_continuar_tras_el_vencimiento(self, qtbot, window, app_catalog):
+        membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
+        membership = service.get_membership(membership_id)
+
+        dialog = RenewMembershipDialog(membership, window)
+        qtbot.addWidget(dialog)
+
+        from datetime import timedelta
+
+        esperado = membership.recent_period.end_date.date() + timedelta(days=1)
+        qdate = dialog.start_input.date()
+        assert date(qdate.year(), qdate.month(), qdate.day()) == esperado
+
+    def test_renovar_agrega_un_periodo(self, qtbot, window, app_catalog):
+        membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
+        dialog = RenewMembershipDialog(service.get_membership(membership_id), window)
+        qtbot.addWidget(dialog)
+        dialog.accept()
+
+        assert len(service.get_membership(membership_id).periods) == 2
+
+
+class TestHistoryDialog:
+    def test_muestra_los_periodos(self, qtbot, window, app_catalog):
+        membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
+        service.renew_membership(membership_id, app_catalog["monthly_id"])
+
+        dialog = MembershipHistoryDialog(membership_id, window)
+        qtbot.addWidget(dialog)
+
+        assert dialog.table.model.rowCount() == 2
+        assert "Total pagado" in dialog.summary.text()
+
+
+class TestPricesPage:
+    def test_muestra_tipos_y_duraciones(self, qtbot, window, app_catalog):
+        page = PricesPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        assert page.types_table.model.rowCount() == 1
+        assert page.durations_table.model.rowCount() == 2
+
+    def test_crear_tipo(self, qtbot, window, app_catalog):
+        dialog = MembershipTypeDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Premium")
+        dialog.accept()
+
+        assert len(service.list_membership_types()) == 2
+
+    def test_tipo_duplicado_muestra_error(self, qtbot, window, app_catalog):
+        dialog = MembershipTypeDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("General")
+        dialog.accept()
+
+        assert dialog.result() == 0
+        assert dialog.name_field.error.isVisibleTo(dialog)
+
+    def test_crear_duracion(self, qtbot, window, app_catalog):
+        dialog = DurationDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Trimestral")
+        dialog.amount_input.setValue(3)
+        dialog.unit_input.setCurrentIndex(dialog.unit_input.findData(DurationUnit.MONTH.value))
+        dialog.price_input.setText("1000")
+        dialog.accept()
+
+        assert len(service.list_durations()) == 3
+
+    def test_duracion_con_precio_invalido(self, qtbot, window, app_catalog):
+        dialog = DurationDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Trimestral")
+        dialog.price_input.setText("abc")
+        dialog.accept()
+
+        assert dialog.result() == 0
+        assert dialog.price_field.error.isVisibleTo(dialog)
+
+    def test_editar_duracion_precarga_datos(self, qtbot, window, app_catalog):
+        duracion = next(d for d in service.list_durations() if d.id == app_catalog["monthly_id"])
+        dialog = DurationDialog(window, duracion)
+        qtbot.addWidget(dialog)
+
+        assert dialog.name_input.text() == "Mensual"
+        assert dialog.price_input.cents() == 40000
+        assert not dialog.type_input.isEnabled()
+
+    def test_sin_seleccion_no_falla(self, qtbot, window, app_catalog):
+        page = PricesPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        page.edit_type()
+        page.delete_type()
+        page.edit_duration()
+        page.delete_duration()
