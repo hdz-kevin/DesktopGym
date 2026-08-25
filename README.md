@@ -58,6 +58,18 @@ uv run python -m gym          # ejecutar la aplicación
 uv run pytest                 # ejecutar las pruebas
 ```
 
+Para llenar la base **real** del usuario (en macOS,
+`~/Library/Application Support/TecnoGym/gym.sqlite`) con datos de prueba, o
+volverla al catálogo inicial de precios:
+
+```bash
+uv run python -m gym.seed seed     # socios, visitas, productos y ventas
+uv run python -m gym.seed reset    # solo membresías General y Estudiante
+```
+
+Cierra la aplicación antes. Pide confirmación; `--yes` la omite. Los respaldos
+y los ajustes no se tocan.
+
 Para trabajar sin tocar tus datos reales, apunta la aplicación a otra carpeta:
 
 ```bash

@@ -19,16 +19,20 @@ código para quien lo va a modificar.
 ```bash
 uv sync --all-extras                  # instalar dependencias (requiere uv)
 uv run python -m gym                  # ejecutar la aplicación
-uv run pytest                         # 335 pruebas, ~3 s
+uv run python -m gym.seed seed        # llena la base del usuario con datos de prueba
+uv run python -m gym.seed reset       # deja solo el catalogo inicial de precios
+uv run pytest                         # 347 pruebas, ~3 s
 uv run ruff check . && uv run ruff format .
 uv run python packaging/build.py      # compilar el ejecutable a dist/
 uv run python packaging/screenshots.py screenshots   # render de cada pantalla a PNG
 ```
 
 Para no tocar los datos reales al probar algo, antepón `GYM_DATA_DIR=./.demo`.
-En un entorno sin pantalla (CI, contenedor), agrega `QT_QPA_PLATFORM=offscreen`;
-sin eso Qt aborta al no encontrar servidor gráfico. Las pruebas ya se aíslan
-solas: la fixture `app_db` redirige `GYM_DATA_DIR` a un `tmp_path`.
+`python -m gym.seed` usa la base del usuario (`data_dir()`), la misma que la
+aplicación; `GYM_DATA_DIR` también la desvía. En un entorno sin pantalla (CI,
+contenedor), agrega `QT_QPA_PLATFORM=offscreen`; sin eso Qt aborta al no
+encontrar servidor gráfico. Las pruebas ya se aíslan solas: la fixture `app_db`
+redirige `GYM_DATA_DIR` a un `tmp_path`.
 
 ## Arquitectura
 
