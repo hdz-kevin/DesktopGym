@@ -36,7 +36,7 @@ class MembershipHistoryDialog(QDialog):
         self.table = PagedTable[Period](
             columns=[
                 Column("Periodo", lambda p: format_range(p.start_date, p.end_date), stretch=True),
-                Column("Duración", lambda p: p.duration.name, width=130),
+                Column("Plan", lambda p: p.plan.name, width=130),
                 Column(
                     "Importe",
                     lambda p: format_money(p.price_paid_cents),
@@ -76,7 +76,7 @@ class MembershipHistoryDialog(QDialog):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(10)
 
-        title = QLabel(membership.membership_type.name, box)
+        title = QLabel(membership.plan_category.name, box)
         title.setObjectName("pageTitle")
         row.addWidget(title)
         row.addWidget(status_badge(membership.status))

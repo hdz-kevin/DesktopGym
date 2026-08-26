@@ -102,7 +102,7 @@ class MemberProfileDialog(QDialog):
         period = membership.recent_period
         rows = QFormLayout()
         rows.setSpacing(8)
-        rows.addRow(self._label("Tipo"), QLabel(membership.membership_type.name, card))
+        rows.addRow(self._label("Categoría"), QLabel(membership.plan_category.name, card))
         rows.addRow(self._label("Estado"), status_badge(membership.status))
 
         if period:

@@ -1,4 +1,4 @@
-"""Catalogo de precios: tipos de membresia y sus duraciones."""
+"""Catalogo de categorias y planes."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gym.data.models import Duration, MembershipType
+from gym.data.models import Plan, PlanCategory
 from gym.domain.enums import DurationUnit
 from gym.domain.money import format_money
 from gym.services import memberships as service
@@ -30,20 +30,18 @@ from gym.ui.widgets.inputs import Field, MoneyInput
 from gym.ui.widgets.table import Column, PagedTable
 
 
-class MembershipTypeDialog(QDialog):
-    def __init__(
-        self, parent: QWidget | None = None, membership_type: MembershipType | None = None
-    ):
+class PlanCategoryDialog(QDialog):
+    def __init__(self, parent: QWidget | None = None, category: PlanCategory | None = None):
         super().__init__(parent)
-        self.membership_type = membership_type
-        self.setWindowTitle("Editar tipo" if membership_type else "Nuevo tipo de membresía")
+        self.category = category
+        self.setWindowTitle("Editar categoría" if category else "Nueva categoría de planes")
         self.setModal(True)
         self.setMinimumWidth(380)
 
         self.name_input = QLineEdit(self)
         self.name_input.setPlaceholderText("Por ejemplo: General, Estudiante")
-        if membership_type:
-            self.name_input.setText(membership_type.name)
+        if category:
+            self.name_input.setText(category.name)
         self.name_field = Field("Nombre", self.name_input, self)
 
         buttons = QHBoxLayout()
@@ -61,10 +59,10 @@ class MembershipTypeDialog(QDialog):
     def accept(self) -> None:
         self.name_field.clear_error()
         try:
-            if self.membership_type is None:
-                service.create_membership_type(self.name_input.text())
+            if self.category is None:
+                service.create_plan_category(self.name_input.text())
             else:
-                service.rename_membership_type(self.membership_type.id, self.name_input.text())
+                service.rename_plan_category(self.category.id, self.name_input.text())
         except ValidationError as error:
             self.name_field.show_error(error.errors.get("name", str(error)))
             return
@@ -74,18 +72,18 @@ class MembershipTypeDialog(QDialog):
         super().accept()
 
 
-class DurationDialog(QDialog):
-    def __init__(self, parent: QWidget | None = None, duration: Duration | None = None) -> None:
+class PlanDialog(QDialog):
+    def __init__(self, parent: QWidget | None = None, plan: Plan | None = None) -> None:
         super().__init__(parent)
-        self.duration = duration
-        self.setWindowTitle("Editar duración" if duration else "Nueva duración")
+        self.plan = plan
+        self.setWindowTitle("Editar plan" if plan else "Nuevo plan")
         self.setModal(True)
         self.setMinimumWidth(420)
 
-        self.type_input = QComboBox(self)
-        for membership_type in service.list_membership_types():
-            self.type_input.addItem(membership_type.name, membership_type.id)
-        self.type_field = Field("Tipo de membresía", self.type_input, self)
+        self.category_input = QComboBox(self)
+        for category in service.list_plan_categories():
+            self.category_input.addItem(category.name, category.id)
+        self.category_field = Field("Categoría de planes", self.category_input, self)
 
         self.name_input = QLineEdit(self)
         self.name_input.setPlaceholderText("Por ejemplo: Mensual, 2 Semanas")
@@ -110,8 +108,8 @@ class DurationDialog(QDialog):
         self.price_input = MoneyInput(self)
         self.price_field = Field("Precio", self.price_input, self)
 
-        if duration is not None:
-            self._load(duration)
+        if plan is not None:
+            self._load(plan)
 
         buttons = QHBoxLayout()
         buttons.addStretch(1)
@@ -122,30 +120,30 @@ class DurationDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
-        layout.addWidget(self.type_field)
+        layout.addWidget(self.category_field)
         layout.addWidget(self.name_field)
         layout.addWidget(self.amount_field)
         layout.addWidget(self.price_field)
         layout.addLayout(buttons)
 
-    def _load(self, duration: Duration) -> None:
-        index = self.type_input.findData(duration.membership_type_id)
+    def _load(self, plan: Plan) -> None:
+        index = self.category_input.findData(plan.plan_category_id)
         if index >= 0:
-            self.type_input.setCurrentIndex(index)
-        self.type_input.setEnabled(False)
-        self.name_input.setText(duration.name)
-        self.amount_input.setValue(duration.amount)
-        unit_index = self.unit_input.findData(duration.unit.value)
+            self.category_input.setCurrentIndex(index)
+        self.category_input.setEnabled(False)
+        self.name_input.setText(plan.name)
+        self.amount_input.setValue(plan.amount)
+        unit_index = self.unit_input.findData(plan.unit.value)
         if unit_index >= 0:
             self.unit_input.setCurrentIndex(unit_index)
-        self.price_input.set_cents(duration.price_cents)
+        self.price_input.set_cents(plan.price_cents)
 
     def accept(self) -> None:
-        for field in (self.type_field, self.name_field, self.amount_field, self.price_field):
+        for field in (self.category_field, self.name_field, self.amount_field, self.price_field):
             field.clear_error()
 
-        if self.type_input.currentData() is None:
-            self.type_field.show_error("Crea primero un tipo de membresía.")
+        if self.category_input.currentData() is None:
+            self.category_field.show_error("Crea primero una categoría de planes.")
             return
         if not self.price_input.is_valid():
             self.price_field.show_error("Escribe un precio válido, por ejemplo 400.00")
@@ -153,17 +151,17 @@ class DurationDialog(QDialog):
 
         unit = DurationUnit(self.unit_input.currentData())
         try:
-            if self.duration is None:
-                service.create_duration(
-                    self.type_input.currentData(),
+            if self.plan is None:
+                service.create_plan(
+                    self.category_input.currentData(),
                     self.name_input.text(),
                     self.amount_input.value(),
                     unit,
                     self.price_input.cents(),
                 )
             else:
-                service.update_duration(
-                    self.duration.id,
+                service.update_plan(
+                    self.plan.id,
                     self.name_input.text(),
                     self.amount_input.value(),
                     unit,
@@ -186,45 +184,46 @@ class DurationDialog(QDialog):
         super().accept()
 
 
-class PricesPage(Page):
-    title = "Precios"
+class PlansPage(Page):
+    title = "Planes"
 
     def __init__(self, window) -> None:
         super().__init__(window)
         self.window_ref = window
 
         header = PageHeader(
-            "Precios",
-            "Tipos de membresía y sus duraciones. "
-            "Cambiar un precio no altera pagos ya registrados.",
+            "Planes",
+            "Planes agrupados por categorías.",
         )
-        header.add_action(secondary_button("Nuevo tipo", self.create_type))
-        header.add_action(primary_button("Nueva duración", self.create_duration))
+        header.add_action(secondary_button("Nueva categoría", self.create_category))
+        header.add_action(primary_button("Nuevo plan", self.create_plan))
 
-        self.types_table = PagedTable[MembershipType](
+        # Categories table
+        self.categories_table = PagedTable[PlanCategory](
             columns=[
-                Column("Tipo de membresía", lambda t: t.name, stretch=True),
+                Column("Categoría", lambda t: t.name, stretch=True, align=Qt.AlignmentFlag.AlignLeft),
                 Column(
-                    "Duraciones",
-                    lambda t: len(t.durations),
+                    "Planes",
+                    lambda t: len(t.plans),
                     width=110,
                     align=Qt.AlignmentFlag.AlignCenter,
                 ),
             ],
             page_size=50,
-            empty_text="No hay tipos de membresía. Crea el primero.",
+            empty_text="No hay categorías de planes. Crea la primera.",
         )
-        self.types_table.row_activated.connect(lambda _: self.edit_type())
+        self.categories_table.row_activated.connect(lambda _: self.edit_category())
 
-        type_buttons = QHBoxLayout()
-        type_buttons.addWidget(secondary_button("Editar tipo", self.edit_type))
-        type_buttons.addWidget(danger_button("Eliminar tipo", self.delete_type))
-        type_buttons.addStretch(1)
+        category_buttons = QHBoxLayout()
+        category_buttons.addWidget(secondary_button("Editar categoría", self.edit_category))
+        category_buttons.addWidget(danger_button("Eliminar categoría", self.delete_category))
+        category_buttons.addStretch(1)
 
-        self.durations_table = PagedTable[Duration](
+        # Plans table
+        self.plans_table = PagedTable[Plan](
             columns=[
-                Column("Tipo", lambda d: d.membership_type.name, width=140),
-                Column("Duración", lambda d: d.name, stretch=True),
+                Column("Categoría", lambda d: d.plan_category.name, width=140),
+                Column("Plan", lambda d: d.name, stretch=True),
                 Column(
                     "Equivale a",
                     lambda d: f"{d.amount} {d.unit.label(d.amount)}",
@@ -238,27 +237,27 @@ class PricesPage(Page):
                 ),
             ],
             page_size=50,
-            empty_text="No hay duraciones configuradas.",
+            empty_text="No hay planes configurados.",
         )
-        self.durations_table.row_activated.connect(lambda _: self.edit_duration())
+        self.plans_table.row_activated.connect(lambda _: self.edit_plan())
 
-        duration_buttons = QHBoxLayout()
-        duration_buttons.addWidget(secondary_button("Editar duración", self.edit_duration))
-        duration_buttons.addWidget(danger_button("Eliminar duración", self.delete_duration))
-        duration_buttons.addStretch(1)
+        plan_buttons = QHBoxLayout()
+        plan_buttons.addWidget(secondary_button("Editar plan", self.edit_plan))
+        plan_buttons.addWidget(danger_button("Eliminar plan", self.delete_plan))
+        plan_buttons.addStretch(1)
 
         tables = QHBoxLayout()
         tables.setSpacing(16)
 
         left = QVBoxLayout()
         left.setSpacing(8)
-        left.addWidget(self.types_table, 1)
-        left.addLayout(type_buttons)
+        left.addWidget(self.categories_table, 1)
+        left.addLayout(category_buttons)
 
         right = QVBoxLayout()
         right.setSpacing(8)
-        right.addWidget(self.durations_table, 1)
-        right.addLayout(duration_buttons)
+        right.addWidget(self.plans_table, 1)
+        right.addLayout(plan_buttons)
 
         tables.addLayout(left, 2)
         tables.addLayout(right, 3)
@@ -269,86 +268,86 @@ class PricesPage(Page):
         layout.addLayout(tables, 1)
 
     def refresh(self) -> None:
-        types = service.list_membership_types()
-        self.types_table.set_data(types, len(types))
-        durations = service.list_durations()
-        self.durations_table.set_data(durations, len(durations))
+        categories = service.list_plan_categories()
+        self.categories_table.set_data(categories, len(categories))
+        plans = service.list_plans()
+        self.plans_table.set_data(plans, len(plans))
 
-    def create_type(self) -> None:
-        if MembershipTypeDialog(self).exec():
-            self.window_ref.notify_success("Tipo de membresía creado.")
+    def create_category(self) -> None:
+        if PlanCategoryDialog(self).exec():
+            self.window_ref.notify_success("Categoría de planes creada.")
             self.refresh()
 
-    def edit_type(self) -> None:
-        membership_type = self.types_table.selected_record()
-        if membership_type is None:
-            self.window_ref.notify("Selecciona un tipo de la tabla primero.")
+    def edit_category(self) -> None:
+        category = self.categories_table.selected_record()
+        if category is None:
+            self.window_ref.notify("Selecciona una categoría de la tabla primero.")
             return
-        if MembershipTypeDialog(self, membership_type).exec():
-            self.window_ref.notify_success("Tipo actualizado.")
+        if PlanCategoryDialog(self, category).exec():
+            self.window_ref.notify_success("Categoría actualizada.")
             self.refresh()
 
-    def delete_type(self) -> None:
-        membership_type = self.types_table.selected_record()
-        if membership_type is None:
-            self.window_ref.notify("Selecciona un tipo de la tabla primero.")
+    def delete_category(self) -> None:
+        category = self.categories_table.selected_record()
+        if category is None:
+            self.window_ref.notify("Selecciona una categoría de la tabla primero.")
             return
 
         if not confirm(
             self,
-            "Eliminar tipo",
-            f"¿Eliminar el tipo «{membership_type.name}»?",
+            "Eliminar categoría",
+            f"¿Eliminar la categoría «{category.name}»?",
             confirm_text="Eliminar",
             destructive=True,
         ):
             return
 
         try:
-            service.delete_membership_type(membership_type.id)
+            service.delete_plan_category(category.id)
         except ServiceError as error:
             alert(self, "No se puede eliminar", str(error))
             return
 
-        self.window_ref.notify_success("Tipo eliminado.")
+        self.window_ref.notify_success("Categoría eliminada.")
         self.refresh()
 
-    def create_duration(self) -> None:
-        if not service.list_membership_types():
-            self.window_ref.notify_error("Crea primero un tipo de membresía.")
+    def create_plan(self) -> None:
+        if not service.list_plan_categories():
+            self.window_ref.notify_error("Crea primero una categoría de planes.")
             return
-        if DurationDialog(self).exec():
-            self.window_ref.notify_success("Duración creada.")
+        if PlanDialog(self).exec():
+            self.window_ref.notify_success("Plan creado.")
             self.refresh()
 
-    def edit_duration(self) -> None:
-        duration = self.durations_table.selected_record()
-        if duration is None:
-            self.window_ref.notify("Selecciona una duración de la tabla primero.")
+    def edit_plan(self) -> None:
+        plan = self.plans_table.selected_record()
+        if plan is None:
+            self.window_ref.notify("Selecciona un plan de la tabla primero.")
             return
-        if DurationDialog(self, duration).exec():
-            self.window_ref.notify_success("Duración actualizada.")
+        if PlanDialog(self, plan).exec():
+            self.window_ref.notify_success("Plan actualizado.")
             self.refresh()
 
-    def delete_duration(self) -> None:
-        duration = self.durations_table.selected_record()
-        if duration is None:
-            self.window_ref.notify("Selecciona una duración de la tabla primero.")
+    def delete_plan(self) -> None:
+        plan = self.plans_table.selected_record()
+        if plan is None:
+            self.window_ref.notify("Selecciona un plan de la tabla primero.")
             return
 
         if not confirm(
             self,
-            "Eliminar duración",
-            f"¿Eliminar la duración «{duration.name}»?",
+            "Eliminar plan",
+            f"¿Eliminar el plan «{plan.name}»?",
             confirm_text="Eliminar",
             destructive=True,
         ):
             return
 
         try:
-            service.delete_duration(duration.id)
+            service.delete_plan(plan.id)
         except ServiceError as error:
             alert(self, "No se puede eliminar", str(error))
             return
 
-        self.window_ref.notify_success("Duración eliminada.")
+        self.window_ref.notify_success("Plan eliminado.")
         self.refresh()

@@ -45,14 +45,12 @@ class MemberStats:
 def _eager():
     """Carga por adelantado todo lo que la interfaz leera fuera de la sesion.
 
-    Sin esto, acceder a `member.memberships[0].membership_type` despues de
+    Sin esto, acceder a `member.memberships[0].plan_category` despues de
     cerrar el `session_scope` lanzaria DetachedInstanceError.
     """
     return (
-        selectinload(Member.memberships).selectinload(Membership.membership_type),
-        selectinload(Member.memberships)
-        .selectinload(Membership.periods)
-        .selectinload(Period.duration),
+        selectinload(Member.memberships).selectinload(Membership.plan_category),
+        selectinload(Member.memberships).selectinload(Membership.periods).selectinload(Period.plan),
     )
 
 

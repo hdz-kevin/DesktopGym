@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from gym.config import database_path
 from gym.data import database
 from gym.data.database import create_db_engine
-from gym.data.models import Base, Duration, MembershipType
+from gym.data.models import Base, Plan, PlanCategory
 from gym.domain.enums import DurationUnit
 
 
@@ -45,8 +45,8 @@ def app_db(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def catalog(session: Session) -> dict[str, Duration]:
-    """Un tipo de membresia con dos duraciones para las pruebas de modelo."""
+def catalog(session: Session) -> dict[str, Plan | PlanCategory]:
+    """Una categoria de planes con dos planes para las pruebas de modelo."""
     return _build_catalog(session)
 
 
@@ -57,26 +57,26 @@ def app_catalog(app_db) -> dict[str, int]:
     with factory() as session:
         built = _build_catalog(session)
         return {
-            "type_id": built["type"].id,
+            "category_id": built["category"].id,
             "monthly_id": built["monthly"].id,
             "biweekly_id": built["biweekly"].id,
         }
 
 
-def _build_catalog(session: Session) -> dict[str, Duration]:
-    general = MembershipType(name="General")
+def _build_catalog(session: Session) -> dict[str, Plan | PlanCategory]:
+    general = PlanCategory(name="General")
     session.add(general)
     session.flush()
 
-    monthly = Duration(
-        membership_type_id=general.id,
+    monthly = Plan(
+        plan_category_id=general.id,
         name="Mensual",
         amount=1,
         unit=DurationUnit.MONTH,
         price_cents=40000,
     )
-    biweekly = Duration(
-        membership_type_id=general.id,
+    biweekly = Plan(
+        plan_category_id=general.id,
         name="2 Semanas",
         amount=2,
         unit=DurationUnit.WEEK,
@@ -84,4 +84,4 @@ def _build_catalog(session: Session) -> dict[str, Duration]:
     )
     session.add_all([monthly, biweekly])
     session.commit()
-    return {"type": general, "monthly": monthly, "biweekly": biweekly}
+    return {"category": general, "monthly": monthly, "biweekly": biweekly}

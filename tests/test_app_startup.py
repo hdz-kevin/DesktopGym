@@ -46,27 +46,27 @@ def test_todas_las_paginas_se_actualizan_sin_error(app_window):
 def test_la_semilla_deja_precios_listos(app_db):
     """Al primer arranque debe poder venderse una membresía sin configurar nada."""
     seed_catalog()
-    tipos = memberships_service.list_membership_types()
-    duraciones = memberships_service.list_durations()
+    categorias = memberships_service.list_plan_categories()
+    planes = memberships_service.list_plans()
 
-    assert len(tipos) >= 1
-    assert len(duraciones) >= 1
-    assert all(d.price_cents > 0 for d in duraciones)
+    assert len(categorias) >= 1
+    assert len(planes) >= 1
+    assert all(d.price_cents > 0 for d in planes)
 
 
 def test_sembrar_dos_veces_no_duplica(app_db):
     seed_catalog()
-    primera = len(memberships_service.list_membership_types())
+    primera = len(memberships_service.list_plan_categories())
     seed_catalog()
 
-    assert len(memberships_service.list_membership_types()) == primera
+    assert len(memberships_service.list_plan_categories()) == primera
 
 
 def test_la_semilla_respeta_un_catalogo_existente(app_db):
-    memberships_service.create_membership_type("Solo el mío")
+    memberships_service.create_plan_category("Solo el mío")
     seed_catalog()
 
-    tipos = [t.name for t in memberships_service.list_membership_types()]
+    tipos = [t.name for t in memberships_service.list_plan_categories()]
     assert tipos == ["Solo el mío"]
 
 

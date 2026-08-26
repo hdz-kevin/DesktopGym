@@ -22,17 +22,17 @@ def _member(session, nombre: str, code: str) -> Member:
     return member
 
 
-def _membership_con_periodo(session, member, duration, inicio, fin) -> Membership:
-    membership = Membership(member_id=member.id, membership_type_id=duration.membership_type_id)
+def _membership_con_periodo(session, member, plan, inicio, fin) -> Membership:
+    membership = Membership(member_id=member.id, plan_category_id=plan.plan_category_id)
     session.add(membership)
     session.flush()
     session.add(
         Period(
             membership_id=membership.id,
-            duration_id=duration.id,
+            plan_id=plan.id,
             start_date=inicio,
             end_date=fin,
-            price_paid_cents=duration.price_cents,
+            price_paid_cents=plan.price_cents,
         )
     )
     session.commit()
@@ -108,7 +108,7 @@ class TestMembershipStatus:
         session.add(
             Period(
                 membership_id=membership.id,
-                duration_id=catalog["monthly"].id,
+                plan_id=catalog["monthly"].id,
                 start_date=ahora - timedelta(days=5),
                 end_date=ahora + timedelta(days=25),
                 price_paid_cents=40000,
@@ -132,7 +132,7 @@ class TestMembershipStatus:
 
     def test_sin_periodos_es_vencida(self, session, catalog):
         member = _member(session, "Socio", "10007")
-        membership = Membership(member_id=member.id, membership_type_id=catalog["type"].id)
+        membership = Membership(member_id=member.id, plan_category_id=catalog["category"].id)
         session.add(membership)
         session.commit()
         assert membership.status is MembershipStatus.EXPIRED

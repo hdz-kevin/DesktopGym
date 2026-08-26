@@ -17,11 +17,11 @@ from sqlalchemy import delete
 from gym.config import photos_dir
 from gym.data.database import session_scope
 from gym.data.models import (
-    Duration,
     Member,
     Membership,
-    MembershipType,
     Period,
+    Plan,
+    PlanCategory,
     Product,
     ProductSale,
     Sale,
@@ -101,7 +101,7 @@ _PRODUCTS: list[tuple[str, int, int | None]] = [
 def reset_to_catalog() -> None:
     """Borra el movimiento del gimnasio y deja el catalogo inicial de precios.
 
-    Socios, visitas, productos y ventas desaparecen. Los tipos General y
+    Socios, visitas, productos y ventas desaparecen. Las categorias General y
     Estudiante vuelven a los precios de fabrica, aunque se hayan editado.
     Fotos sueltas se eliminan; respaldos y ajustes no se tocan.
     """
@@ -113,8 +113,8 @@ def reset_to_catalog() -> None:
         session.execute(delete(Membership))
         session.execute(delete(Member))
         session.execute(delete(Product))
-        session.execute(delete(Duration))
-        session.execute(delete(MembershipType))
+        session.execute(delete(Plan))
+        session.execute(delete(PlanCategory))
         populate_seed_catalog(session)
     _clear_photos()
     logger.info("Base restablecida al catalogo inicial")
@@ -123,7 +123,7 @@ def reset_to_catalog() -> None:
 def seed() -> SeedSummary:
     """Vacia la base, restaura el catalogo y carga datos de prueba."""
     reset_to_catalog()
-    catalog = _duration_ids()
+    catalog = _plan_ids()
     ids = _seed_members()
     memberships = _seed_memberships(ids, catalog)
     visits = _seed_visits()
@@ -154,10 +154,10 @@ def _clear_photos() -> None:
             path.unlink(missing_ok=True)
 
 
-def _duration_ids() -> dict[str, int]:
+def _plan_ids() -> dict[str, int]:
     ids: dict[str, int] = {}
-    for duration in memberships_service.list_durations():
-        ids[f"{duration.membership_type.name}:{duration.name}"] = duration.id
+    for plan in memberships_service.list_plans():
+        ids[f"{plan.plan_category.name}:{plan.name}"] = plan.id
     return ids
 
 
@@ -177,10 +177,10 @@ def _seed_memberships(ids: dict[str, int], catalog: dict[str, int]) -> int:
     student_month = catalog["Estudiante:Mensual"]
     student_weeks = catalog["Estudiante:2 Semanas"]
 
-    def give(name: str, duration_id: int, start: date, *, renew: bool = False) -> int:
-        membership_id = memberships_service.create_membership(ids[name], duration_id, start=start)
+    def give(name: str, plan_id: int, start: date, *, renew: bool = False) -> int:
+        membership_id = memberships_service.create_membership(ids[name], plan_id, start=start)
         if renew:
-            memberships_service.renew_membership(membership_id, duration_id)
+            memberships_service.renew_membership(membership_id, plan_id)
         return membership_id
 
     # Activos con distintos planes y antiguedades.
@@ -215,7 +215,7 @@ def _seed_memberships(ids: dict[str, int], catalog: dict[str, int]) -> int:
     # Vencio hace meses y se reactivo hoy.
     give("Jorge Pena", general_month, today - timedelta(days=80), renew=True)
 
-    # Dos duraciones distintas en el historial.
+    # Dos planes distintos en el historial.
     mixed = give("Monica Fuentes", general_weeks, today - timedelta(days=40))
     memberships_service.renew_membership(mixed, general_month, start=today - timedelta(days=20))
 

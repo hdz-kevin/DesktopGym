@@ -28,26 +28,23 @@ from gym.ui.widgets.common import Card, primary_button, secondary_button
 from gym.ui.widgets.inputs import Field, MoneyInput, SearchBox
 
 
-def _duration_options(combo: QComboBox) -> dict[int, object]:
-    """Llena el combo con las duraciones y devuelve el catalogo por id.
+def _plan_options(combo: QComboBox) -> dict[int, object]:
+    """Llena el combo con los planes y devuelve el catalogo por id.
 
     Se conserva el catalogo en memoria para no reconsultar la base cada vez que
     el usuario mueve la fecha y se recalcula la vista previa.
     """
     combo.clear()
     catalog = {}
-    for duration in service.list_durations():
-        label = (
-            f"{duration.membership_type.name} · {duration.name} "
-            f"({format_money(duration.price_cents)})"
-        )
-        combo.addItem(label, duration.id)
-        catalog[duration.id] = duration
+    for plan in service.list_plans():
+        label = f"{plan.plan_category.name} · {plan.name} ({format_money(plan.price_cents)})"
+        combo.addItem(label, plan.id)
+        catalog[plan.id] = plan
     return catalog
 
 
 class MembershipFormDialog(QDialog):
-    """Alta de membresia: elegir socio, duracion y fecha de inicio."""
+    """Alta de membresia: elegir socio, plan y fecha de inicio."""
 
     def __init__(self, parent: QWidget | None = None, member_id: int | None = None) -> None:
         super().__init__(parent)
@@ -77,10 +74,10 @@ class MembershipFormDialog(QDialog):
         member_layout.addWidget(self.selected_label)
         self.member_field = Field("Socio", member_box, self)
 
-        self.duration_input = QComboBox(self)
-        self._durations = _duration_options(self.duration_input)
-        self.duration_input.currentIndexChanged.connect(self._update_preview)
-        self.duration_field = Field("Tipo y duración", self.duration_input, self)
+        self.plan_input = QComboBox(self)
+        self._plans = _plan_options(self.plan_input)
+        self.plan_input.currentIndexChanged.connect(self._update_preview)
+        self.plan_field = Field("Plan", self.plan_input, self)
 
         self.start_input = QDateEdit(self)
         self.start_input.setCalendarPopup(True)
@@ -105,7 +102,7 @@ class MembershipFormDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
         layout.addWidget(self.member_field)
-        layout.addWidget(self.duration_field)
+        layout.addWidget(self.plan_field)
         layout.addWidget(self.start_field)
         layout.addWidget(preview_card)
         layout.addLayout(buttons)
@@ -130,46 +127,46 @@ class MembershipFormDialog(QDialog):
         self.selected_label.setText(f"Socio seleccionado: {name}" if name else "Socio seleccionado")
         self.member_field.clear_error()
 
-    def _selected_duration_id(self) -> int | None:
-        return self.duration_input.currentData()
+    def _selected_plan_id(self) -> int | None:
+        return self.plan_input.currentData()
 
     def _start_date(self) -> date:
         qdate = self.start_input.date()
         return date(qdate.year(), qdate.month(), qdate.day())
 
     def _update_preview(self) -> None:
-        duration_id = self._selected_duration_id()
-        if duration_id is None:
-            self.preview.setText("No hay duraciones configuradas. Ve a Precios (F5).")
+        plan_id = self._selected_plan_id()
+        if plan_id is None:
+            self.preview.setText("No hay planes configurados. Ve a Precios (F5).")
             return
 
-        duration = self._durations.get(duration_id)
-        if duration is None:
+        plan = self._plans.get(plan_id)
+        if plan is None:
             return
 
         start = self._start_date()
-        end = period_end_date(datetime.combine(start, time()), duration.unit, duration.amount)
+        end = period_end_date(datetime.combine(start, time()), plan.unit, plan.amount)
         self.preview.setText(
             f"Vigencia: {format_date(start)} al {format_date(end)}\n"
-            f"Importe: {format_money(duration.price_cents)}"
+            f"Importe: {format_money(plan.price_cents)}"
         )
 
     def accept(self) -> None:
         self.member_field.clear_error()
-        self.duration_field.clear_error()
+        self.plan_field.clear_error()
 
         if self._member_id is None:
             self.member_field.show_error("Selecciona un socio.")
             return
 
-        duration_id = self._selected_duration_id()
-        if duration_id is None:
-            self.duration_field.show_error("Configura al menos una duración en Precios.")
+        plan_id = self._selected_plan_id()
+        if plan_id is None:
+            self.plan_field.show_error("Configura al menos un plan en Precios.")
             return
 
         try:
             self.membership_id = service.create_membership(
-                self._member_id, duration_id, self._start_date()
+                self._member_id, plan_id, self._start_date()
             )
         except ServiceError as error:
             self.member_field.show_error(str(error))
@@ -187,9 +184,9 @@ class RenewMembershipDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(440)
 
-        self.duration_input = QComboBox(self)
-        _duration_options(self.duration_input)
-        self.duration_field = Field("Tipo y duración", self.duration_input, self)
+        self.plan_input = QComboBox(self)
+        _plan_options(self.plan_input)
+        self.plan_field = Field("Categoría y plan", self.plan_input, self)
 
         self.start_input = QDateEdit(self)
         self.start_input.setCalendarPopup(True)
@@ -223,7 +220,7 @@ class RenewMembershipDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
-        layout.addWidget(self.duration_field)
+        layout.addWidget(self.plan_field)
         layout.addWidget(self.start_field)
         layout.addLayout(buttons)
 
@@ -235,10 +232,10 @@ class RenewMembershipDialog(QDialog):
         return date.today()
 
     def accept(self) -> None:
-        self.duration_field.clear_error()
-        duration_id = self.duration_input.currentData()
-        if duration_id is None:
-            self.duration_field.show_error("Configura al menos una duración en Precios.")
+        self.plan_field.clear_error()
+        plan_id = self.plan_input.currentData()
+        if plan_id is None:
+            self.plan_field.show_error("Configura al menos un plan en Precios.")
             return
 
         start = None
@@ -247,9 +244,9 @@ class RenewMembershipDialog(QDialog):
             start = date(qdate.year(), qdate.month(), qdate.day())
 
         try:
-            service.renew_membership(self.membership.id, duration_id, start)
+            service.renew_membership(self.membership.id, plan_id, start)
         except ServiceError as error:
-            self.duration_field.show_error(str(error))
+            self.plan_field.show_error(str(error))
             return
         super().accept()
 
@@ -264,12 +261,12 @@ class PeriodFormDialog(QDialog):
         self.setModal(True)
         self.setMinimumWidth(420)
 
-        self.duration_input = QComboBox(self)
-        _duration_options(self.duration_input)
-        index = self.duration_input.findData(period.duration_id)
+        self.plan_input = QComboBox(self)
+        _plan_options(self.plan_input)
+        index = self.plan_input.findData(period.plan_id)
         if index >= 0:
-            self.duration_input.setCurrentIndex(index)
-        self.duration_field = Field("Duración", self.duration_input, self)
+            self.plan_input.setCurrentIndex(index)
+        self.plan_field = Field("Plan", self.plan_input, self)
 
         self.start_input = QDateEdit(self)
         self.start_input.setCalendarPopup(True)
@@ -293,13 +290,13 @@ class PeriodFormDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
-        layout.addWidget(self.duration_field)
+        layout.addWidget(self.plan_field)
         layout.addWidget(self.start_field)
         layout.addWidget(self.price_field)
         layout.addLayout(buttons)
 
     def accept(self) -> None:
-        for field in (self.duration_field, self.price_field):
+        for field in (self.plan_field, self.price_field):
             field.clear_error()
 
         if not self.price_input.is_valid():
@@ -310,7 +307,7 @@ class PeriodFormDialog(QDialog):
         try:
             service.update_period(
                 self.period.id,
-                self.duration_input.currentData(),
+                self.plan_input.currentData(),
                 date(qdate.year(), qdate.month(), qdate.day()),
                 self.price_input.cents(),
             )

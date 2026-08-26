@@ -18,14 +18,11 @@ from gym.single_instance import InstanceLock
 
 
 def _tipos() -> list[str]:
-    return [t.name for t in memberships_service.list_membership_types()]
+    return [t.name for t in memberships_service.list_plan_categories()]
 
 
-def _duraciones() -> list[tuple[str, str, int]]:
-    return [
-        (d.membership_type.name, d.name, d.price_cents)
-        for d in memberships_service.list_durations()
-    ]
+def _planes() -> list[tuple[str, str, int]]:
+    return [(d.plan_category.name, d.name, d.price_cents) for d in memberships_service.list_plans()]
 
 
 class TestReset:
@@ -54,7 +51,7 @@ class TestReset:
 
     def test_restaura_precios_aunque_el_catalogo_se_haya_editado(self, app_db):
         seed_catalog()
-        memberships_service.create_membership_type("VIP")
+        memberships_service.create_plan_category("VIP")
 
         reset_to_catalog()
 
@@ -64,7 +61,7 @@ class TestReset:
             for tipo, filas in SEED_CATALOG.items()
             for nombre, _amount, _unit, precio in filas
         }
-        assert set(_duraciones()) == esperadas
+        assert set(_planes()) == esperadas
 
     def test_borra_fotos_sueltas_y_no_toca_respaldos_ni_ajustes(self, app_db):
         foto = photos_dir() / "demo.jpg"

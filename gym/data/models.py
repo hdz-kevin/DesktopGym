@@ -112,36 +112,34 @@ class Member(Base, TimestampMixin):
         return max(self.memberships, key=lambda m: m.updated_at)
 
 
-class MembershipType(Base, TimestampMixin):
-    __tablename__ = "membership_types"
+class PlanCategory(Base, TimestampMixin):
+    __tablename__ = "plan_categories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
-    durations: Mapped[list[Duration]] = relationship(
-        back_populates="membership_type", order_by="Duration.id"
-    )
-    memberships: Mapped[list[Membership]] = relationship(back_populates="membership_type")
+    plans: Mapped[list[Plan]] = relationship(back_populates="plan_category", order_by="Plan.id")
+    memberships: Mapped[list[Membership]] = relationship(back_populates="plan_category")
 
 
-class Duration(Base, TimestampMixin):
-    __tablename__ = "durations"
+class Plan(Base, TimestampMixin):
+    __tablename__ = "plans"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    membership_type_id: Mapped[int] = mapped_column(
-        ForeignKey("membership_types.id", ondelete="RESTRICT"), nullable=False
+    plan_category_id: Mapped[int] = mapped_column(
+        ForeignKey("plan_categories.id", ondelete="RESTRICT"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     unit: Mapped[DurationUnit] = mapped_column(EnumValue(DurationUnit, 10), nullable=False)
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    membership_type: Mapped[MembershipType] = relationship(back_populates="durations")
-    periods: Mapped[list[Period]] = relationship(back_populates="duration")
+    plan_category: Mapped[PlanCategory] = relationship(back_populates="plans")
+    periods: Mapped[list[Period]] = relationship(back_populates="plan")
 
     __table_args__ = (
-        CheckConstraint("amount > 0", name="ck_durations_amount_positive"),
-        CheckConstraint("price_cents >= 0", name="ck_durations_price_non_negative"),
+        CheckConstraint("amount > 0", name="ck_plans_amount_positive"),
+        CheckConstraint("price_cents >= 0", name="ck_plans_price_non_negative"),
     )
 
 
@@ -152,12 +150,12 @@ class Membership(Base, TimestampMixin):
     member_id: Mapped[int] = mapped_column(
         ForeignKey("members.id", ondelete="CASCADE"), nullable=False
     )
-    membership_type_id: Mapped[int] = mapped_column(
-        ForeignKey("membership_types.id", ondelete="RESTRICT"), nullable=False
+    plan_category_id: Mapped[int] = mapped_column(
+        ForeignKey("plan_categories.id", ondelete="RESTRICT"), nullable=False
     )
 
     member: Mapped[Member] = relationship(back_populates="memberships")
-    membership_type: Mapped[MembershipType] = relationship(back_populates="memberships")
+    plan_category: Mapped[PlanCategory] = relationship(back_populates="memberships")
     periods: Mapped[list[Period]] = relationship(
         back_populates="membership",
         cascade="all, delete-orphan",
@@ -197,15 +195,15 @@ class Period(Base, TimestampMixin):
     membership_id: Mapped[int] = mapped_column(
         ForeignKey("memberships.id", ondelete="CASCADE"), nullable=False
     )
-    duration_id: Mapped[int] = mapped_column(
-        ForeignKey("durations.id", ondelete="RESTRICT"), nullable=False
+    plan_id: Mapped[int] = mapped_column(
+        ForeignKey("plans.id", ondelete="RESTRICT"), nullable=False
     )
     start_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     price_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False)
 
     membership: Mapped[Membership] = relationship(back_populates="periods")
-    duration: Mapped[Duration] = relationship(back_populates="periods")
+    plan: Mapped[Plan] = relationship(back_populates="periods")
 
     __table_args__ = (
         Index("ix_periods_membership_end", "membership_id", "end_date"),

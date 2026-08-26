@@ -24,7 +24,7 @@ def build_window(settings: Settings):
     from gym.ui.pages.kiosk import KioskPage
     from gym.ui.pages.members import MembersPage
     from gym.ui.pages.memberships import MembershipsPage
-    from gym.ui.pages.prices import PricesPage
+    from gym.ui.pages.plans import PlansPage
     from gym.ui.pages.products import ProductsPage
     from gym.ui.pages.sales import SalesPage
     from gym.ui.pages.settings import SettingsPage
@@ -35,7 +35,7 @@ def build_window(settings: Settings):
     window.register_page("members", MembersPage(window))
     window.register_page("memberships", MembershipsPage(window))
     window.register_page("visits", VisitsPage(window))
-    window.register_page("prices", PricesPage(window))
+    window.register_page("plans", PlansPage(window))
     window.register_page("cash", CashPage(window))
     window.register_page("products", ProductsPage(window))
     window.register_page("sales", SalesPage(window))

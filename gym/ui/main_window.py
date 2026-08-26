@@ -38,7 +38,7 @@ NAV_ITEMS = [
     NavItem("members", "Socios", "F2", "Gimnasio"),
     NavItem("memberships", "Membresías", "F3", "Gimnasio"),
     NavItem("visits", "Visitas", "F4", "Gimnasio"),
-    NavItem("prices", "Precios", "F5", "Gimnasio"),
+    NavItem("plans", "Planes", "F5", "Gimnasio"),
     NavItem("cash", "Corte de caja", "F6", "Gimnasio"),
     NavItem("products", "Productos", "F7", "Tienda"),
     NavItem("sales", "Ventas", "F8", "Tienda"),

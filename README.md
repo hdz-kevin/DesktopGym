@@ -14,7 +14,7 @@ superior de este repositorio.
 | Socios | `F2` | Alta, edición, foto, búsqueda y filtros por estado |
 | Membresías | `F3` | Altas, renovaciones e historial de pagos |
 | Visitas | `F4` | Entradas sueltas de quienes no son socios |
-| Precios | `F5` | Tipos de membresía y sus duraciones |
+| Precios | `F5` | Categorías de planes y sus planes |
 | Corte de caja | `F6` | Ingresos del día, la semana o el mes por concepto |
 | Productos | `F7` | Catálogo e inventario de la tienda |
 | Ventas | `F8` | Punto de venta con carrito |

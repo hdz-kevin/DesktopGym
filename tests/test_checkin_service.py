@@ -21,13 +21,13 @@ def alta(nombre: str = "Ana Lopez") -> tuple[int, str]:
 def dar_periodo(member_id: int, catalog: dict, dias_restantes: int) -> None:
     ahora = datetime.now()
     with session_scope() as session:
-        membership = Membership(member_id=member_id, membership_type_id=catalog["type_id"])
+        membership = Membership(member_id=member_id, plan_category_id=catalog["category_id"])
         session.add(membership)
         session.flush()
         session.add(
             Period(
                 membership_id=membership.id,
-                duration_id=catalog["monthly_id"],
+                plan_id=catalog["monthly_id"],
                 start_date=ahora - timedelta(days=30),
                 end_date=ahora + timedelta(days=dias_restantes),
                 price_paid_cents=40000,
@@ -66,13 +66,15 @@ class TestAccesoConcedido:
         member_id, codigo = alta()
         ahora = datetime.now()
         with session_scope() as session:
-            membership = Membership(member_id=member_id, membership_type_id=app_catalog["type_id"])
+            membership = Membership(
+                member_id=member_id, plan_category_id=app_catalog["category_id"]
+            )
             session.add(membership)
             session.flush()
             session.add(
                 Period(
                     membership_id=membership.id,
-                    duration_id=app_catalog["monthly_id"],
+                    plan_id=app_catalog["monthly_id"],
                     start_date=ahora - timedelta(days=30),
                     end_date=ahora.replace(hour=23, minute=59, second=59),
                     price_paid_cents=40000,

@@ -21,16 +21,16 @@ def alta(nombre: str = "Ana Lopez", **kwargs) -> int:
     return service.create_member(form)
 
 
-def dar_membresia(member_id: int, duration_id: int, type_id: int, dias_restantes: int) -> None:
+def dar_membresia(member_id: int, plan_id: int, category_id: int, dias_restantes: int) -> None:
     ahora = datetime.now()
     with session_scope() as session:
-        membership = Membership(member_id=member_id, membership_type_id=type_id)
+        membership = Membership(member_id=member_id, plan_category_id=category_id)
         session.add(membership)
         session.flush()
         session.add(
             Period(
                 membership_id=membership.id,
-                duration_id=duration_id,
+                plan_id=plan_id,
                 start_date=ahora - timedelta(days=30),
                 end_date=ahora + timedelta(days=dias_restantes),
                 price_paid_cents=40000,
@@ -156,7 +156,7 @@ class TestEditarYBorrar:
 
     def test_no_borra_socio_con_membresias(self, app_db, app_catalog):
         member_id = alta()
-        dar_membresia(member_id, app_catalog["monthly_id"], app_catalog["type_id"], 10)
+        dar_membresia(member_id, app_catalog["monthly_id"], app_catalog["category_id"], 10)
 
         with pytest.raises(ServiceError, match="historial"):
             service.delete_member(member_id)
@@ -173,8 +173,8 @@ class TestListadoYFiltros:
         activo = alta("Activo Ramirez")
         vencido = alta("Vencido Torres")
         sin = alta("Nuevo Sanchez")
-        dar_membresia(activo, app_catalog["monthly_id"], app_catalog["type_id"], 15)
-        dar_membresia(vencido, app_catalog["monthly_id"], app_catalog["type_id"], -5)
+        dar_membresia(activo, app_catalog["monthly_id"], app_catalog["category_id"], 15)
+        dar_membresia(vencido, app_catalog["monthly_id"], app_catalog["category_id"], -5)
         return activo, vencido, sin
 
     def test_lista_todo_por_defecto(self, app_db, app_catalog):

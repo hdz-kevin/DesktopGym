@@ -14,7 +14,7 @@ from gym.ui.dialogs.membership_form import MembershipFormDialog, RenewMembership
 from gym.ui.dialogs.membership_history import MembershipHistoryDialog
 from gym.ui.main_window import MainWindow
 from gym.ui.pages.memberships import MembershipsPage
-from gym.ui.pages.prices import DurationDialog, MembershipTypeDialog, PricesPage
+from gym.ui.pages.plans import PlanCategoryDialog, PlanDialog, PlansPage
 
 
 @pytest.fixture
@@ -67,7 +67,7 @@ class TestMembershipsPage:
 
         assert page.table.model.rowCount() == 1
 
-    def test_avisa_si_no_hay_duraciones(self, qtbot, app_db):
+    def test_avisa_si_no_hay_planes(self, qtbot, app_db):
         window = MainWindow(Settings())
         qtbot.addWidget(window)
         page = MembershipsPage(window)
@@ -157,25 +157,25 @@ class TestHistoryDialog:
         assert "Total pagado" in dialog.summary.text()
 
 
-class TestPricesPage:
-    def test_muestra_tipos_y_duraciones(self, qtbot, window, app_catalog):
-        page = PricesPage(window)
+class TestPlansPage:
+    def test_muestra_categorias_y_planes(self, qtbot, window, app_catalog):
+        page = PlansPage(window)
         qtbot.addWidget(page)
         page.refresh()
 
-        assert page.types_table.model.rowCount() == 1
-        assert page.durations_table.model.rowCount() == 2
+        assert page.categories_table.model.rowCount() == 1
+        assert page.plans_table.model.rowCount() == 2
 
-    def test_crear_tipo(self, qtbot, window, app_catalog):
-        dialog = MembershipTypeDialog(window)
+    def test_crear_categoria(self, qtbot, window, app_catalog):
+        dialog = PlanCategoryDialog(window)
         qtbot.addWidget(dialog)
         dialog.name_input.setText("Premium")
         dialog.accept()
 
-        assert len(service.list_membership_types()) == 2
+        assert len(service.list_plan_categories()) == 2
 
-    def test_tipo_duplicado_muestra_error(self, qtbot, window, app_catalog):
-        dialog = MembershipTypeDialog(window)
+    def test_categoria_duplicada_muestra_error(self, qtbot, window, app_catalog):
+        dialog = PlanCategoryDialog(window)
         qtbot.addWidget(dialog)
         dialog.name_input.setText("General")
         dialog.accept()
@@ -183,8 +183,8 @@ class TestPricesPage:
         assert dialog.result() == 0
         assert dialog.name_field.error.isVisibleTo(dialog)
 
-    def test_crear_duracion(self, qtbot, window, app_catalog):
-        dialog = DurationDialog(window)
+    def test_crear_plan(self, qtbot, window, app_catalog):
+        dialog = PlanDialog(window)
         qtbot.addWidget(dialog)
         dialog.name_input.setText("Trimestral")
         dialog.amount_input.setValue(3)
@@ -192,10 +192,10 @@ class TestPricesPage:
         dialog.price_input.setText("1000")
         dialog.accept()
 
-        assert len(service.list_durations()) == 3
+        assert len(service.list_plans()) == 3
 
-    def test_duracion_con_precio_invalido(self, qtbot, window, app_catalog):
-        dialog = DurationDialog(window)
+    def test_plan_con_precio_invalido(self, qtbot, window, app_catalog):
+        dialog = PlanDialog(window)
         qtbot.addWidget(dialog)
         dialog.name_input.setText("Trimestral")
         dialog.price_input.setText("abc")
@@ -204,21 +204,21 @@ class TestPricesPage:
         assert dialog.result() == 0
         assert dialog.price_field.error.isVisibleTo(dialog)
 
-    def test_editar_duracion_precarga_datos(self, qtbot, window, app_catalog):
-        duracion = next(d for d in service.list_durations() if d.id == app_catalog["monthly_id"])
-        dialog = DurationDialog(window, duracion)
+    def test_editar_plan_precarga_datos(self, qtbot, window, app_catalog):
+        plan = next(d for d in service.list_plans() if d.id == app_catalog["monthly_id"])
+        dialog = PlanDialog(window, plan)
         qtbot.addWidget(dialog)
 
         assert dialog.name_input.text() == "Mensual"
         assert dialog.price_input.cents() == 40000
-        assert not dialog.type_input.isEnabled()
+        assert not dialog.category_input.isEnabled()
 
     def test_sin_seleccion_no_falla(self, qtbot, window, app_catalog):
-        page = PricesPage(window)
+        page = PlansPage(window)
         qtbot.addWidget(page)
         page.refresh()
 
-        page.edit_type()
-        page.delete_type()
-        page.edit_duration()
-        page.delete_duration()
+        page.edit_category()
+        page.delete_category()
+        page.edit_plan()
+        page.delete_plan()

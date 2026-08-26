@@ -85,7 +85,7 @@ class MembershipsPage(Page):
             columns=[
                 Column("Socio", lambda m: m.member.name, stretch=True),
                 Column("Código", lambda m: m.member.code, width=90),
-                Column("Tipo", lambda m: m.membership_type.name, width=130),
+                Column("Categoría", lambda m: m.plan_category.name, width=130),
                 Column("Vigencia", _expiry_text, width=250),
                 Column(
                     "Pagado",
@@ -143,8 +143,8 @@ class MembershipsPage(Page):
         self.load()
 
     def create_membership(self) -> None:
-        if not service.list_durations():
-            self.window_ref.notify_error("Primero configura tipos y duraciones en Precios (F5).")
+        if not service.list_plans():
+            self.window_ref.notify_error("Primero configura categorías y planes en Precios (F5).")
             return
 
         dialog = MembershipFormDialog(self)

@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from gym.config import resource_path
 from gym.data.database import get_engine, session_scope
-from gym.data.models import Duration, MembershipType
+from gym.data.models import Plan, PlanCategory
 from gym.domain.enums import DurationUnit
 
 logger = logging.getLogger(__name__)
@@ -57,14 +57,14 @@ def populate_seed_catalog(session) -> None:
 
     El llamador garantiza que la base esta vacia.
     """
-    for type_name, durations in SEED_CATALOG.items():
-        membership_type = MembershipType(name=type_name)
-        session.add(membership_type)
+    for category_name, plans in SEED_CATALOG.items():
+        category = PlanCategory(name=category_name)
+        session.add(category)
         session.flush()
-        for name, amount, unit, price_cents in durations:
+        for name, amount, unit, price_cents in plans:
             session.add(
-                Duration(
-                    membership_type_id=membership_type.id,
+                Plan(
+                    plan_category_id=category.id,
                     name=name,
                     amount=amount,
                     unit=unit,
@@ -74,13 +74,13 @@ def populate_seed_catalog(session) -> None:
 
 
 def seed_catalog() -> None:
-    """Crea tipos de membresia y duraciones si el catalogo esta vacio.
+    """Crea categorias de planes y planes si el catalogo esta vacio.
 
     Sin esto la primera alta de membresia seria imposible: no habria ningun
     precio para elegir.
     """
     with session_scope() as session:
-        if session.scalar(select(MembershipType).limit(1)) is not None:
+        if session.scalar(select(PlanCategory).limit(1)) is not None:
             return
         populate_seed_catalog(session)
         logger.info("Catalogo inicial creado")

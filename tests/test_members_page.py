@@ -33,13 +33,13 @@ def alta(nombre="Ana Lopez", gender=MemberGender.FEMALE) -> int:
 def dar_periodo(member_id: int, catalog: dict, dias: int) -> None:
     ahora = datetime.now()
     with session_scope() as session:
-        membership = Membership(member_id=member_id, membership_type_id=catalog["type_id"])
+        membership = Membership(member_id=member_id, plan_category_id=catalog["category_id"])
         session.add(membership)
         session.flush()
         session.add(
             Period(
                 membership_id=membership.id,
-                duration_id=catalog["monthly_id"],
+                plan_id=catalog["monthly_id"],
                 start_date=ahora - timedelta(days=30),
                 end_date=ahora + timedelta(days=dias),
                 price_paid_cents=40000,

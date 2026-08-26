@@ -10,7 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from gym.data.database import session_scope
-from gym.data.models import Duration, Member, Membership, MembershipType, Period
+from gym.data.models import Member, Membership, Period, Plan, PlanCategory
 from gym.domain.dates import start_of_day
 from gym.domain.enums import DurationUnit, MembershipStatus
 from gym.domain.rules import period_end_date
@@ -29,22 +29,22 @@ class MembershipStats:
 def _eager():
     return (
         selectinload(Membership.member),
-        selectinload(Membership.membership_type),
-        selectinload(Membership.periods).selectinload(Period.duration),
+        selectinload(Membership.plan_category),
+        selectinload(Membership.periods).selectinload(Period.plan),
     )
 
 
-def _load_duration(session, duration_id: int) -> Duration:
-    duration = session.get(Duration, duration_id)
-    if duration is None:
-        raise NotFoundError("La duración seleccionada ya no existe.")
-    return duration
+def _load_plan(session, plan_id: int) -> Plan:
+    plan = session.get(Plan, plan_id)
+    if plan is None:
+        raise NotFoundError("El plan seleccionado ya no existe.")
+    return plan
 
 
-def create_membership(member_id: int, duration_id: int, start: date | None = None) -> int:
+def create_membership(member_id: int, plan_id: int, start: date | None = None) -> int:
     """Da de alta una membresia con su primer periodo pagado.
 
-    El precio se copia de la duracion al periodo: cambiar la lista de precios
+    El precio se copia del plan al periodo: cambiar la lista de precios
     despues no debe alterar lo que este socio ya pago.
     """
     with session_scope() as session:
@@ -52,9 +52,9 @@ def create_membership(member_id: int, duration_id: int, start: date | None = Non
         if member is None:
             raise NotFoundError("El socio ya no existe.")
 
-        duration = _load_duration(session, duration_id)
+        plan = _load_plan(session, plan_id)
 
-        membership = Membership(member_id=member_id, membership_type_id=duration.membership_type_id)
+        membership = Membership(member_id=member_id, plan_category_id=plan.plan_category_id)
         session.add(membership)
         session.flush()
 
@@ -62,17 +62,17 @@ def create_membership(member_id: int, duration_id: int, start: date | None = Non
         session.add(
             Period(
                 membership_id=membership.id,
-                duration_id=duration.id,
+                plan_id=plan.id,
                 start_date=begins,
-                end_date=period_end_date(begins, duration.unit, duration.amount),
-                price_paid_cents=duration.price_cents,
+                end_date=period_end_date(begins, plan.unit, plan.amount),
+                price_paid_cents=plan.price_cents,
             )
         )
         logger.info("Membresia creada para el socio %s", member_id)
         return membership.id
 
 
-def renew_membership(membership_id: int, duration_id: int, start: date | None = None) -> int:
+def renew_membership(membership_id: int, plan_id: int, start: date | None = None) -> int:
     """Agrega un periodo nuevo.
 
     Si la membresia sigue vigente, el periodo arranca al dia siguiente del
@@ -83,7 +83,7 @@ def renew_membership(membership_id: int, duration_id: int, start: date | None = 
         if membership is None:
             raise NotFoundError("La membresía ya no existe.")
 
-        duration = _load_duration(session, duration_id)
+        plan = _load_plan(session, plan_id)
 
         if start is not None:
             begins = start_of_day(start)
@@ -99,10 +99,10 @@ def renew_membership(membership_id: int, duration_id: int, start: date | None = 
 
         period = Period(
             membership_id=membership_id,
-            duration_id=duration.id,
+            plan_id=plan.id,
             start_date=begins,
-            end_date=period_end_date(begins, duration.unit, duration.amount),
-            price_paid_cents=duration.price_cents,
+            end_date=period_end_date(begins, plan.unit, plan.amount),
+            price_paid_cents=plan.price_cents,
         )
         session.add(period)
         session.flush()
@@ -110,7 +110,7 @@ def renew_membership(membership_id: int, duration_id: int, start: date | None = 
         return period.id
 
 
-def update_period(period_id: int, duration_id: int, start: date, price_cents: int) -> None:
+def update_period(period_id: int, plan_id: int, start: date, price_cents: int) -> None:
     """Corrige un periodo ya registrado, por ejemplo tras un cobro mal capturado."""
     if price_cents < 0:
         raise ValidationError({"price": "El precio no puede ser negativo."})
@@ -120,12 +120,12 @@ def update_period(period_id: int, duration_id: int, start: date, price_cents: in
         if period is None:
             raise NotFoundError("El periodo ya no existe.")
 
-        duration = _load_duration(session, duration_id)
+        plan = _load_plan(session, plan_id)
         begins = start_of_day(start)
 
-        period.duration_id = duration.id
+        period.plan_id = plan.id
         period.start_date = begins
-        period.end_date = period_end_date(begins, duration.unit, duration.amount)
+        period.end_date = period_end_date(begins, plan.unit, plan.amount)
         period.price_paid_cents = price_cents
         logger.info("Periodo %s actualizado", period_id)
 
@@ -241,30 +241,30 @@ def search_members(term: str, limit: int = 10) -> list[Member]:
 # --- Catalogo de precios -------------------------------------------------
 
 
-def list_membership_types() -> list[MembershipType]:
+def list_plan_categories() -> list[PlanCategory]:
     with session_scope() as session:
         return list(
             session.scalars(
-                select(MembershipType)
-                .options(selectinload(MembershipType.durations))
-                .order_by(MembershipType.name)
+                select(PlanCategory)
+                .options(selectinload(PlanCategory.plans))
+                .order_by(PlanCategory.name)
             ).all()
         )
 
 
-def list_durations() -> list[Duration]:
+def list_plans() -> list[Plan]:
     with session_scope() as session:
         return list(
             session.scalars(
-                select(Duration)
-                .options(selectinload(Duration.membership_type))
-                .join(MembershipType)
-                .order_by(MembershipType.name, Duration.id)
+                select(Plan)
+                .options(selectinload(Plan.plan_category))
+                .join(PlanCategory)
+                .order_by(PlanCategory.name, Plan.id)
             ).all()
         )
 
 
-def create_membership_type(name: str) -> int:
+def create_plan_category(name: str) -> int:
     name = name.strip()
     if not name:
         raise ValidationError({"name": "El nombre es obligatorio."})
@@ -272,59 +272,59 @@ def create_membership_type(name: str) -> int:
     with session_scope() as session:
         exists = session.scalar(
             select(func.count())
-            .select_from(MembershipType)
-            .where(func.lower(MembershipType.name) == name.lower())
+            .select_from(PlanCategory)
+            .where(func.lower(PlanCategory.name) == name.lower())
         )
         if exists:
-            raise ValidationError({"name": f'Ya existe un tipo llamado "{name}".'})
+            raise ValidationError({"name": f'Ya existe una categoría llamada "{name}".'})
 
-        membership_type = MembershipType(name=name)
-        session.add(membership_type)
+        category = PlanCategory(name=name)
+        session.add(category)
         session.flush()
-        return membership_type.id
+        return category.id
 
 
-def rename_membership_type(type_id: int, name: str) -> None:
+def rename_plan_category(category_id: int, name: str) -> None:
     name = name.strip()
     if not name:
         raise ValidationError({"name": "El nombre es obligatorio."})
 
     with session_scope() as session:
-        membership_type = session.get(MembershipType, type_id)
-        if membership_type is None:
-            raise NotFoundError("El tipo de membresía ya no existe.")
+        category = session.get(PlanCategory, category_id)
+        if category is None:
+            raise NotFoundError("La categoría de planes ya no existe.")
 
         clash = session.scalar(
             select(func.count())
-            .select_from(MembershipType)
+            .select_from(PlanCategory)
             .where(
-                func.lower(MembershipType.name) == name.lower(),
-                MembershipType.id != type_id,
+                func.lower(PlanCategory.name) == name.lower(),
+                PlanCategory.id != category_id,
             )
         )
         if clash:
-            raise ValidationError({"name": f'Ya existe un tipo llamado "{name}".'})
+            raise ValidationError({"name": f'Ya existe una categoría llamada "{name}".'})
 
-        membership_type.name = name
+        category.name = name
 
 
-def delete_membership_type(type_id: int) -> None:
+def delete_plan_category(category_id: int) -> None:
     with session_scope() as session:
-        membership_type = session.get(MembershipType, type_id)
-        if membership_type is None:
-            raise NotFoundError("El tipo de membresía ya no existe.")
+        category = session.get(PlanCategory, category_id)
+        if category is None:
+            raise NotFoundError("La categoría de planes ya no existe.")
 
         in_use = session.scalar(
             select(func.count())
             .select_from(Membership)
-            .where(Membership.membership_type_id == type_id)
+            .where(Membership.plan_category_id == category_id)
         )
         if in_use:
-            raise ServiceError("No se puede eliminar un tipo con membresías registradas.")
-        session.delete(membership_type)
+            raise ServiceError("No se puede eliminar una categoría con membresías registradas.")
+        session.delete(category)
 
 
-def validate_duration(name: str, amount: int, price_cents: int) -> dict[str, str]:
+def validate_plan(name: str, amount: int, price_cents: int) -> dict[str, str]:
     errors: dict[str, str] = {}
     if not name.strip():
         errors["name"] = "El nombre es obligatorio."
@@ -335,63 +335,59 @@ def validate_duration(name: str, amount: int, price_cents: int) -> dict[str, str
     return errors
 
 
-def create_duration(
-    type_id: int, name: str, amount: int, unit: DurationUnit, price_cents: int
+def create_plan(
+    category_id: int, name: str, amount: int, unit: DurationUnit, price_cents: int
 ) -> int:
-    errors = validate_duration(name, amount, price_cents)
+    errors = validate_plan(name, amount, price_cents)
     if errors:
         raise ValidationError(errors)
 
     with session_scope() as session:
-        if session.get(MembershipType, type_id) is None:
-            raise NotFoundError("El tipo de membresía ya no existe.")
+        if session.get(PlanCategory, category_id) is None:
+            raise NotFoundError("La categoría de planes ya no existe.")
 
-        duration = Duration(
-            membership_type_id=type_id,
+        plan = Plan(
+            plan_category_id=category_id,
             name=name.strip(),
             amount=amount,
             unit=unit,
             price_cents=price_cents,
         )
-        session.add(duration)
+        session.add(plan)
         session.flush()
-        return duration.id
+        return plan.id
 
 
-def update_duration(
-    duration_id: int, name: str, amount: int, unit: DurationUnit, price_cents: int
-) -> None:
-    """Cambia una duracion del catalogo.
+def update_plan(plan_id: int, name: str, amount: int, unit: DurationUnit, price_cents: int) -> None:
+    """Cambia un plan del catalogo.
 
     Los periodos ya cobrados conservan su `price_paid_cents`, asi que subir el
     precio no reescribe la historia.
     """
-    errors = validate_duration(name, amount, price_cents)
+    errors = validate_plan(name, amount, price_cents)
     if errors:
         raise ValidationError(errors)
 
     with session_scope() as session:
-        duration = session.get(Duration, duration_id)
-        if duration is None:
-            raise NotFoundError("La duración ya no existe.")
+        plan = session.get(Plan, plan_id)
+        if plan is None:
+            raise NotFoundError("El plan ya no existe.")
 
-        duration.name = name.strip()
-        duration.amount = amount
-        duration.unit = unit
-        duration.price_cents = price_cents
+        plan.name = name.strip()
+        plan.amount = amount
+        plan.unit = unit
+        plan.price_cents = price_cents
 
 
-def delete_duration(duration_id: int) -> None:
+def delete_plan(plan_id: int) -> None:
     with session_scope() as session:
-        duration = session.get(Duration, duration_id)
-        if duration is None:
-            raise NotFoundError("La duración ya no existe.")
+        plan = session.get(Plan, plan_id)
+        if plan is None:
+            raise NotFoundError("El plan ya no existe.")
 
         in_use = session.scalar(
-            select(func.count()).select_from(Period).where(Period.duration_id == duration_id)
+            select(func.count()).select_from(Period).where(Period.plan_id == plan_id)
         )
         if in_use:
-            raise ServiceError(
-                "No se puede eliminar una duración usada en periodos ya registrados."
-            )
-        session.delete(duration)
+            raise ServiceError("No se puede eliminar un plan usado en periodos ya registrados.")
+        session.delete(plan)
