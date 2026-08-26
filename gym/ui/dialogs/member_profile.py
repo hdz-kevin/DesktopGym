@@ -99,18 +99,18 @@ class MemberProfileDialog(QDialog):
             card.body.addWidget(QLabel("Este socio aún no tiene membresías.", card))
             return card
 
-        period = membership.recent_period
+        payment = membership.recent_payment
         rows = QFormLayout()
         rows.setSpacing(8)
         rows.addRow(self._label("Categoría"), QLabel(membership.plan_category.name, card))
         rows.addRow(self._label("Estado"), status_badge(membership.status))
 
-        if period:
-            rows.addRow(self._label("Vigencia"), QLabel(format_date(period.end_date), card))
+        if payment:
+            rows.addRow(self._label("Vigencia"), QLabel(format_date(payment.end_date), card))
             if membership.status is MembershipStatus.ACTIVE:
                 rows.addRow(
                     self._label("Vence en"),
-                    QLabel(humanize_delta(period.end_date), card),
+                    QLabel(humanize_delta(payment.end_date), card),
                 )
             rows.addRow(
                 self._label("Total pagado"),

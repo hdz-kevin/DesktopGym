@@ -1,9 +1,9 @@
 """Modelos SQLAlchemy del dominio del gimnasio.
 
-Los estados de socio, membresia y periodo no son columnas: se derivan de las
-fechas. Se exponen como `hybrid_property` para que la misma regla sirva en
-Python y dentro de un WHERE de SQL, evitando cargar tablas enteras en memoria
-solo para filtrar por "activo" o "vencido".
+Los estados de socio y membresia no son columnas: se derivan de las fechas.
+Se exponen como `hybrid_property` para que la misma regla sirva en Python y
+dentro de un WHERE de SQL, evitando cargar tablas enteras en memoria solo
+para filtrar por "activo" o "vencido".
 """
 
 from __future__ import annotations
@@ -35,7 +35,6 @@ from gym.domain.enums import (
     MemberGender,
     MembershipStatus,
     MemberStatus,
-    PeriodStatus,
 )
 from gym.domain.rules import initials
 
@@ -81,17 +80,17 @@ class Member(Base, TimestampMixin):
     @classmethod
     def status(cls):
         has_membership = exists(select(Membership.id).where(Membership.member_id == cls.id))
-        has_active_period = exists(
-            select(Period.id)
-            .join(Membership, Period.membership_id == Membership.id)
+        has_active_payment = exists(
+            select(Payment.id)
+            .join(Membership, Payment.membership_id == Membership.id)
             .where(
                 Membership.member_id == cls.id,
-                Period.end_date >= func.datetime("now", "localtime"),
+                Payment.end_date >= func.datetime("now", "localtime"),
             )
         )
         return case(
             (~has_membership, MemberStatus.NO_MEMBERSHIP.value),
-            (has_active_period, MemberStatus.ACTIVE.value),
+            (has_active_payment, MemberStatus.ACTIVE.value),
             else_=MemberStatus.EXPIRED.value,
         )
 
@@ -135,7 +134,7 @@ class Plan(Base, TimestampMixin):
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
 
     plan_category: Mapped[PlanCategory] = relationship(back_populates="plans")
-    periods: Mapped[list[Period]] = relationship(back_populates="plan")
+    payments: Mapped[list[Payment]] = relationship(back_populates="plan")
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_plans_amount_positive"),
@@ -156,15 +155,15 @@ class Membership(Base, TimestampMixin):
 
     member: Mapped[Member] = relationship(back_populates="memberships")
     plan_category: Mapped[PlanCategory] = relationship(back_populates="memberships")
-    periods: Mapped[list[Period]] = relationship(
+    payments: Mapped[list[Payment]] = relationship(
         back_populates="membership",
         cascade="all, delete-orphan",
-        order_by="desc(Period.id)",
+        order_by="desc(Payment.id)",
     )
 
     @hybrid_property
     def status(self) -> MembershipStatus:
-        if any(p.status is PeriodStatus.IN_PROGRESS for p in self.periods):
+        if any(p.end_date >= datetime.now() for p in self.payments):
             return MembershipStatus.ACTIVE
         return MembershipStatus.EXPIRED
 
@@ -172,24 +171,24 @@ class Membership(Base, TimestampMixin):
     @classmethod
     def status(cls):
         active = exists(
-            select(Period.id).where(
-                Period.membership_id == cls.id,
-                Period.end_date >= func.datetime("now", "localtime"),
+            select(Payment.id).where(
+                Payment.membership_id == cls.id,
+                Payment.end_date >= func.datetime("now", "localtime"),
             )
         )
         return case((active, MembershipStatus.ACTIVE.value), else_=MembershipStatus.EXPIRED.value)
 
     @property
-    def recent_period(self) -> Period | None:
-        return self.periods[0] if self.periods else None
+    def recent_payment(self) -> Payment | None:
+        return self.payments[0] if self.payments else None
 
     @property
     def total_paid_cents(self) -> int:
-        return sum(p.price_paid_cents for p in self.periods)
+        return sum(p.price_paid_cents for p in self.payments)
 
 
-class Period(Base, TimestampMixin):
-    __tablename__ = "periods"
+class Payment(Base, TimestampMixin):
+    __tablename__ = "payments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     membership_id: Mapped[int] = mapped_column(
@@ -202,28 +201,19 @@ class Period(Base, TimestampMixin):
     end_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     price_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    membership: Mapped[Membership] = relationship(back_populates="periods")
-    plan: Mapped[Plan] = relationship(back_populates="periods")
+    membership: Mapped[Membership] = relationship(back_populates="payments")
+    plan: Mapped[Plan] = relationship(back_populates="payments")
 
     __table_args__ = (
-        Index("ix_periods_membership_end", "membership_id", "end_date"),
-        Index("ix_periods_start_date", "start_date"),
-        CheckConstraint("end_date >= start_date", name="ck_periods_dates_ordered"),
+        Index("ix_payments_membership_end", "membership_id", "end_date"),
+        Index("ix_payments_start_date", "start_date"),
+        CheckConstraint("end_date >= start_date", name="ck_payments_dates_ordered"),
     )
 
-    @hybrid_property
-    def status(self) -> PeriodStatus:
-        if datetime.now() > self.end_date:
-            return PeriodStatus.COMPLETED
-        return PeriodStatus.IN_PROGRESS
-
-    @status.expression
-    @classmethod
-    def status(cls):
-        return case(
-            (cls.end_date < func.datetime("now", "localtime"), PeriodStatus.COMPLETED.value),
-            else_=PeriodStatus.IN_PROGRESS.value,
-        )
+    @property
+    def is_current(self) -> bool:
+        now = datetime.now()
+        return self.start_date <= now <= self.end_date
 
 
 class Visit(Base, TimestampMixin):

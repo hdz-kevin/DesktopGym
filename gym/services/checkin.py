@@ -52,8 +52,10 @@ def verify_code(code: str, now: datetime | None = None) -> CheckInResult:
         )
 
     if membership.status is MembershipStatus.EXPIRED:
-        period = membership.recent_period
-        detail = f"Venció el {format_date(period.end_date)}." if period else "Sin periodos pagados."
+        payment = membership.recent_payment
+        detail = (
+            f"Venció el {format_date(payment.end_date)}." if payment else "Sin pagos registrados."
+        )
         return CheckInResult(
             False,
             "Membresía vencida.",
@@ -62,10 +64,10 @@ def verify_code(code: str, now: datetime | None = None) -> CheckInResult:
             detail=detail,
         )
 
-    period = membership.recent_period
+    payment = membership.recent_payment
     detail = ""
-    if period:
-        detail = f"Vence en {humanize_delta(period.end_date, now)}."
+    if payment:
+        detail = f"Vence en {humanize_delta(payment.end_date, now)}."
 
     return CheckInResult(
         True,

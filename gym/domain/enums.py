@@ -27,14 +27,6 @@ class MemberGender(str, Enum):
         return "Masculino" if self is MemberGender.MALE else "Femenino"
 
 
-class PeriodStatus(str, Enum):
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-
-    def label(self) -> str:
-        return "En Curso" if self is PeriodStatus.IN_PROGRESS else "Completado"
-
-
 class MembershipStatus(str, Enum):
     ACTIVE = "active"
     EXPIRED = "expired"

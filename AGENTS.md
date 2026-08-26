@@ -68,12 +68,12 @@ que un gimnasio nota:
 - **El dinero se guarda siempre en centavos enteros** (`price_cents`,
   `total_cents`, `subtotal_cents`). Nunca `float`, nunca `Decimal` en la base.
   Convierte con `gym.domain.money` (`to_cents`, `to_pesos`, `format_money`).
-- **Los estados no se guardan, se calculan.** `Member.status`,
-  `Membership.status` y `Period.status` son `hybrid_property`: la misma regla
-  corre en Python y dentro de un `WHERE` de SQL. No agregues una columna
-  `status`; el sistema viejo lo hizo y dependía de una tarea programada que al
-  fallar dejaba socios vencidos marcados como activos.
-- **Los periodos vencen al final del día.** El socio conserva el último día
+- **Los estados no se guardan, se calculan.** `Member.status` y
+  `Membership.status` son `hybrid_property`: la misma regla corre en Python
+  y dentro de un `WHERE` de SQL. No agregues una columna `status`; el sistema
+  viejo lo hizo y dependía de una tarea programada que al fallar dejaba socios
+  vencidos marcados como activos. Un `Payment` no tiene estado: ya se cobró.
+- **Los pagos vencen al final del día.** El socio conserva el último día
   completo. Usa los helpers de `gym.domain.dates`, no `datetime` a pelo.
 - **Sumar meses recorta al último día válido**: 31 de enero + 1 mes vence el 28
   de febrero, no el 3 de marzo. Está en `dates.add_months`.

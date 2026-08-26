@@ -1,4 +1,4 @@
-"""Alta y renovacion de membresias, y edicion de un periodo."""
+"""Alta y renovacion de membresias."""
 
 from __future__ import annotations
 
@@ -18,14 +18,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gym.data.models import Membership, Period
+from gym.data.models import Membership
 from gym.domain.dates import format_date
 from gym.domain.money import format_money
 from gym.domain.rules import period_end_date
 from gym.services import memberships as service
 from gym.services.errors import ServiceError
 from gym.ui.widgets.common import Card, primary_button, secondary_button
-from gym.ui.widgets.inputs import Field, MoneyInput, SearchBox
+from gym.ui.widgets.inputs import Field, SearchBox
 
 
 def _plan_options(combo: QComboBox) -> dict[int, object]:
@@ -226,9 +226,9 @@ class RenewMembershipDialog(QDialog):
 
     def _suggested_start(self) -> date:
         """Continua desde el vencimiento si la membresia sigue vigente."""
-        period = self.membership.recent_period
-        if period and period.end_date.date() >= date.today():
-            return period.end_date.date() + timedelta(days=1)
+        payment = self.membership.recent_payment
+        if payment and payment.end_date.date() >= date.today():
+            return payment.end_date.date() + timedelta(days=1)
         return date.today()
 
     def accept(self) -> None:
@@ -247,71 +247,5 @@ class RenewMembershipDialog(QDialog):
             service.renew_membership(self.membership.id, plan_id, start)
         except ServiceError as error:
             self.plan_field.show_error(str(error))
-            return
-        super().accept()
-
-
-class PeriodFormDialog(QDialog):
-    """Correccion de un periodo ya registrado."""
-
-    def __init__(self, period: Period, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.period = period
-        self.setWindowTitle("Editar periodo")
-        self.setModal(True)
-        self.setMinimumWidth(420)
-
-        self.plan_input = QComboBox(self)
-        _plan_options(self.plan_input)
-        index = self.plan_input.findData(period.plan_id)
-        if index >= 0:
-            self.plan_input.setCurrentIndex(index)
-        self.plan_field = Field("Plan", self.plan_input, self)
-
-        self.start_input = QDateEdit(self)
-        self.start_input.setCalendarPopup(True)
-        self.start_input.setDisplayFormat("dd/MM/yyyy")
-        self.start_input.setDate(
-            QDate(period.start_date.year, period.start_date.month, period.start_date.day)
-        )
-        self.start_field = Field("Inicio", self.start_input, self)
-
-        self.price_input = MoneyInput(self)
-        self.price_input.set_cents(period.price_paid_cents)
-        self.price_field = Field("Importe pagado", self.price_input, self)
-
-        self.save_button = primary_button("Guardar", self.accept)
-        self.save_button.setDefault(True)
-
-        buttons = QHBoxLayout()
-        buttons.addStretch(1)
-        buttons.addWidget(secondary_button("Cancelar", self.reject))
-        buttons.addWidget(self.save_button)
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(14)
-        layout.addWidget(self.plan_field)
-        layout.addWidget(self.start_field)
-        layout.addWidget(self.price_field)
-        layout.addLayout(buttons)
-
-    def accept(self) -> None:
-        for field in (self.plan_field, self.price_field):
-            field.clear_error()
-
-        if not self.price_input.is_valid():
-            self.price_field.show_error("Escribe un importe válido, por ejemplo 400.00")
-            return
-
-        qdate = self.start_input.date()
-        try:
-            service.update_period(
-                self.period.id,
-                self.plan_input.currentData(),
-                date(qdate.year(), qdate.month(), qdate.day()),
-                self.price_input.cents(),
-            )
-        except ServiceError as error:
-            self.price_field.show_error(str(error))
             return
         super().accept()

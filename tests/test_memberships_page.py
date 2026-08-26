@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from PySide6.QtCore import Qt
 
 from gym.config import Settings
 from gym.domain.enums import DurationUnit, MemberGender, MembershipStatus
@@ -104,7 +105,7 @@ class TestMembershipFormDialog:
         assert dialog.membership_id is not None
         membership = service.get_membership(dialog.membership_id)
         assert membership.member_id == member_id
-        assert len(membership.periods) == 1
+        assert len(membership.payments) == 1
 
     def test_muestra_la_vista_previa_de_vigencia(self, qtbot, window, app_catalog):
         dialog = MembershipFormDialog(window, member_id=alta())
@@ -132,7 +133,7 @@ class TestRenewDialog:
 
         from datetime import timedelta
 
-        esperado = membership.recent_period.end_date.date() + timedelta(days=1)
+        esperado = membership.recent_payment.end_date.date() + timedelta(days=1)
         qdate = dialog.start_input.date()
         assert date(qdate.year(), qdate.month(), qdate.day()) == esperado
 
@@ -142,11 +143,11 @@ class TestRenewDialog:
         qtbot.addWidget(dialog)
         dialog.accept()
 
-        assert len(service.get_membership(membership_id).periods) == 2
+        assert len(service.get_membership(membership_id).payments) == 2
 
 
 class TestHistoryDialog:
-    def test_muestra_los_periodos(self, qtbot, window, app_catalog):
+    def test_muestra_los_pagos(self, qtbot, window, app_catalog):
         membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
         service.renew_membership(membership_id, app_catalog["monthly_id"])
 
@@ -155,6 +156,11 @@ class TestHistoryDialog:
 
         assert dialog.table.model.rowCount() == 2
         assert "Total pagado" in dialog.summary.text()
+        etiquetas = [
+            dialog.table.model.data(dialog.table.model.index(i, 3), Qt.ItemDataRole.DisplayRole)
+            for i in range(2)
+        ]
+        assert etiquetas.count("Vigente") == 1
 
 
 class TestPlansPage:

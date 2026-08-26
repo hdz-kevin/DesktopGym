@@ -19,7 +19,7 @@ from gym.data.database import session_scope
 from gym.data.models import (
     Member,
     Membership,
-    Period,
+    Payment,
     Plan,
     PlanCategory,
     Product,
@@ -109,7 +109,7 @@ def reset_to_catalog() -> None:
         session.execute(delete(ProductSale))
         session.execute(delete(Sale))
         session.execute(delete(Visit))
-        session.execute(delete(Period))
+        session.execute(delete(Payment))
         session.execute(delete(Membership))
         session.execute(delete(Member))
         session.execute(delete(Product))

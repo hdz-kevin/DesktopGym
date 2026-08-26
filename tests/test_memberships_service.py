@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from gym.domain.enums import DurationUnit, MemberGender, MembershipStatus, PeriodStatus
+from gym.domain.enums import DurationUnit, MemberGender, MembershipStatus
 from gym.services import members as members_service
 from gym.services import memberships as service
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
@@ -17,20 +17,20 @@ def alta(nombre: str = "Ana Lopez") -> int:
 
 
 class TestCrearMembresia:
-    def test_crea_membresia_con_su_primer_periodo(self, app_db, app_catalog):
+    def test_crea_membresia_con_su_primer_pago(self, app_db, app_catalog):
         member_id = alta()
         membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
 
         membership = service.get_membership(membership_id)
-        assert len(membership.periods) == 1
+        assert len(membership.payments) == 1
         assert membership.status is MembershipStatus.ACTIVE
 
     def test_copia_el_precio_del_plan(self, app_db, app_catalog):
         member_id = alta()
         membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
 
-        periodo = service.get_membership(membership_id).periods[0]
-        assert periodo.price_paid_cents == 40000
+        pago = service.get_membership(membership_id).payments[0]
+        assert pago.price_paid_cents == 40000
 
     def test_calcula_el_vencimiento_segun_el_plan(self, app_db, app_catalog):
         member_id = alta()
@@ -38,9 +38,9 @@ class TestCrearMembresia:
             member_id, app_catalog["monthly_id"], start=date(2025, 1, 15)
         )
 
-        periodo = service.get_membership(membership_id).periods[0]
-        assert periodo.start_date.date() == date(2025, 1, 15)
-        assert periodo.end_date.date() == date(2025, 2, 15)
+        pago = service.get_membership(membership_id).payments[0]
+        assert pago.start_date.date() == date(2025, 1, 15)
+        assert pago.end_date.date() == date(2025, 2, 15)
 
     def test_el_socio_queda_activo(self, app_db, app_catalog):
         member_id = alta()
@@ -60,12 +60,12 @@ class TestCrearMembresia:
 
 
 class TestRenovar:
-    def test_agrega_un_periodo(self, app_db, app_catalog):
+    def test_agrega_un_pago(self, app_db, app_catalog):
         member_id = alta()
         membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
         service.renew_membership(membership_id, app_catalog["monthly_id"])
 
-        assert len(service.get_membership(membership_id).periods) == 2
+        assert len(service.get_membership(membership_id).payments) == 2
 
     def test_si_sigue_vigente_encadena_al_dia_siguiente(self, app_db, app_catalog):
         """Renovar antes de vencer no debe regalar ni cobrar dias dos veces."""
@@ -73,8 +73,8 @@ class TestRenovar:
         membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
         service.renew_membership(membership_id, app_catalog["monthly_id"])
 
-        periodos = sorted(service.get_membership(membership_id).periods, key=lambda p: p.start_date)
-        assert periodos[1].start_date.date() == periodos[0].end_date.date() + timedelta(days=1)
+        pagos = sorted(service.get_membership(membership_id).payments, key=lambda p: p.start_date)
+        assert pagos[1].start_date.date() == pagos[0].end_date.date() + timedelta(days=1)
 
     def test_si_ya_vencio_empieza_hoy(self, app_db, app_catalog):
         member_id = alta()
@@ -83,8 +83,8 @@ class TestRenovar:
         )
         service.renew_membership(membership_id, app_catalog["monthly_id"])
 
-        periodos = sorted(service.get_membership(membership_id).periods, key=lambda p: p.start_date)
-        assert periodos[1].start_date.date() == date.today()
+        pagos = sorted(service.get_membership(membership_id).payments, key=lambda p: p.start_date)
+        assert pagos[1].start_date.date() == date.today()
 
     def test_renovar_reactiva_una_membresia_vencida(self, app_db, app_catalog):
         member_id = alta()
@@ -102,9 +102,9 @@ class TestRenovar:
         elegida = date.today() + timedelta(days=90)
         service.renew_membership(membership_id, app_catalog["biweekly_id"], start=elegida)
 
-        periodos = sorted(service.get_membership(membership_id).periods, key=lambda p: p.start_date)
-        assert periodos[-1].start_date.date() == elegida
-        assert periodos[-1].end_date.date() == elegida + timedelta(days=14)
+        pagos = sorted(service.get_membership(membership_id).payments, key=lambda p: p.start_date)
+        assert pagos[-1].start_date.date() == elegida
+        assert pagos[-1].end_date.date() == elegida + timedelta(days=14)
 
     def test_suma_el_total_pagado(self, app_db, app_catalog):
         member_id = alta()
@@ -116,50 +116,6 @@ class TestRenovar:
     def test_membresia_inexistente(self, app_db, app_catalog):
         with pytest.raises(NotFoundError):
             service.renew_membership(999, app_catalog["monthly_id"])
-
-
-class TestEditarPeriodo:
-    def test_recalcula_el_vencimiento(self, app_db, app_catalog):
-        member_id = alta()
-        membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
-        periodo = service.get_membership(membership_id).periods[0]
-
-        service.update_period(periodo.id, app_catalog["biweekly_id"], date(2025, 3, 1), 25000)
-
-        actualizado = service.get_membership(membership_id).periods[0]
-        assert actualizado.start_date.date() == date(2025, 3, 1)
-        assert actualizado.end_date.date() == date(2025, 3, 15)
-        assert actualizado.price_paid_cents == 25000
-
-    def test_rechaza_precio_negativo(self, app_db, app_catalog):
-        member_id = alta()
-        membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
-        periodo = service.get_membership(membership_id).periods[0]
-
-        with pytest.raises(ValidationError):
-            service.update_period(periodo.id, app_catalog["monthly_id"], date.today(), -100)
-
-    def test_periodo_inexistente(self, app_db, app_catalog):
-        with pytest.raises(NotFoundError):
-            service.update_period(999, app_catalog["monthly_id"], date.today(), 100)
-
-
-class TestBorrarPeriodo:
-    def test_no_permite_borrar_el_unico_periodo(self, app_db, app_catalog):
-        member_id = alta()
-        membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
-        periodo = service.get_membership(membership_id).periods[0]
-
-        with pytest.raises(ServiceError, match="único periodo"):
-            service.delete_period(periodo.id)
-
-    def test_borra_un_periodo_cuando_hay_varios(self, app_db, app_catalog):
-        member_id = alta()
-        membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
-        period_id = service.renew_membership(membership_id, app_catalog["monthly_id"])
-
-        service.delete_period(period_id)
-        assert len(service.get_membership(membership_id).periods) == 1
 
 
 class TestListadoYEstadisticas:
@@ -203,7 +159,7 @@ class TestListadoYEstadisticas:
         assert len(service.search_members("ana")) == 1
         assert service.search_members("") == []
 
-    def test_borra_una_membresia_con_sus_periodos(self, app_db, app_catalog):
+    def test_borra_una_membresia_con_sus_pagos(self, app_db, app_catalog):
         member_id = alta()
         membership_id = service.create_membership(member_id, app_catalog["monthly_id"])
         service.delete_membership(membership_id)
@@ -269,17 +225,17 @@ class TestCatalogoDePrecios:
         assert mensual.price_cents == 45000
 
     def test_subir_el_precio_no_reescribe_lo_ya_cobrado(self, app_db, app_catalog):
-        """El periodo guarda lo que el socio pago, no el precio de hoy."""
+        """El pago guarda lo que el socio pago, no el precio de hoy."""
         membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
 
         service.update_plan(app_catalog["monthly_id"], "Mensual", 1, DurationUnit.MONTH, 90000)
 
-        periodo = service.get_membership(membership_id).periods[0]
-        assert periodo.price_paid_cents == 40000
+        pago = service.get_membership(membership_id).payments[0]
+        assert pago.price_paid_cents == 40000
 
     def test_no_borra_un_plan_usado(self, app_db, app_catalog):
         service.create_membership(alta(), app_catalog["monthly_id"])
-        with pytest.raises(ServiceError, match="periodos ya registrados"):
+        with pytest.raises(ServiceError, match="pagos ya registrados"):
             service.delete_plan(app_catalog["monthly_id"])
 
     def test_borra_un_plan_sin_uso(self, app_db, app_catalog):
@@ -290,24 +246,28 @@ class TestCatalogoDePrecios:
         assert all(d.id != plan_id for d in service.list_plans())
 
 
-class TestEstadoDePeriodos:
-    def test_periodo_futuro_esta_en_curso(self, app_db, app_catalog):
+class TestEstadoDeMembresia:
+    def test_con_pago_vigente_esta_activa(self, app_db, app_catalog):
         membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
-        periodo = service.get_membership(membership_id).periods[0]
-        assert periodo.status is PeriodStatus.IN_PROGRESS
+        membership = service.get_membership(membership_id)
+        assert membership.status is MembershipStatus.ACTIVE
+        assert membership.payments[0].is_current
 
-    def test_periodo_pasado_esta_completado(self, app_db, app_catalog):
+    def test_con_pago_pasado_esta_vencida(self, app_db, app_catalog):
         membership_id = service.create_membership(
             alta(), app_catalog["monthly_id"], start=date(2020, 1, 1)
         )
-        periodo = service.get_membership(membership_id).periods[0]
-        assert periodo.status is PeriodStatus.COMPLETED
+        membership = service.get_membership(membership_id)
+        assert membership.status is MembershipStatus.EXPIRED
+        assert not membership.payments[0].is_current
 
-    def test_periodo_que_vence_hoy_sigue_en_curso(self, app_db, app_catalog):
+    def test_pago_que_vence_hoy_sigue_activa(self, app_db, app_catalog):
         inicio = date.today() - timedelta(days=30)
         membership_id = service.create_membership(alta(), app_catalog["monthly_id"], start=inicio)
-        periodo = service.get_membership(membership_id).periods[0]
+        membership = service.get_membership(membership_id)
+        pago = membership.payments[0]
 
-        if periodo.end_date.date() == date.today():
-            assert periodo.status is PeriodStatus.IN_PROGRESS
-            assert periodo.end_date > datetime.now()
+        if pago.end_date.date() == date.today():
+            assert membership.status is MembershipStatus.ACTIVE
+            assert pago.is_current
+            assert pago.end_date > datetime.now()

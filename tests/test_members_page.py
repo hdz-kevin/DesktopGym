@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt
 
 from gym.config import Settings
 from gym.data.database import session_scope
-from gym.data.models import Membership, Period
+from gym.data.models import Membership, Payment
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.services import members as service
 from gym.ui.dialogs.member_form import MemberFormDialog
@@ -37,7 +37,7 @@ def dar_periodo(member_id: int, catalog: dict, dias: int) -> None:
         session.add(membership)
         session.flush()
         session.add(
-            Period(
+            Payment(
                 membership_id=membership.id,
                 plan_id=catalog["monthly_id"],
                 start_date=ahora - timedelta(days=30),

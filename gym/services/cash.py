@@ -12,7 +12,7 @@ from datetime import date, datetime
 from sqlalchemy import Select, and_, exists, func, select
 
 from gym.data.database import session_scope
-from gym.data.models import Period, Sale, Visit
+from gym.data.models import Payment, Sale, Visit
 from gym.domain.dates import day_bounds, month_bounds, week_bounds
 from gym.services.visits import VisitRange
 
@@ -68,30 +68,30 @@ def _between(statement: Select, column, range_: VisitRange, moment: date | None)
 
 
 def _is_renewal():
-    """Un periodo es renovacion si su membresia ya tenia otro periodo anterior.
+    """Un pago es renovacion si su membresia ya tenia otro pago anterior.
 
     Es la unica forma de distinguir un alta nueva de una renovacion sin guardar
-    una bandera que se podria desincronizar al corregir un periodo.
+    una bandera que se podria desincronizar.
     """
-    previous = Period.__table__.alias("previo")
+    previous = Payment.__table__.alias("previo")
     return exists(
         select(previous.c.id).where(
             and_(
-                previous.c.membership_id == Period.membership_id,
-                previous.c.start_date < Period.start_date,
+                previous.c.membership_id == Payment.membership_id,
+                previous.c.start_date < Payment.start_date,
             )
         )
     )
 
 
-def _concept_from_periods(session, range_: VisitRange, moment: date | None, renewals: bool):
+def _concept_from_payments(session, range_: VisitRange, moment: date | None, renewals: bool):
     condition = _is_renewal() if renewals else ~_is_renewal()
     statement = _between(
         select(
-            func.count(Period.id),
-            func.coalesce(func.sum(Period.price_paid_cents), 0),
+            func.count(Payment.id),
+            func.coalesce(func.sum(Payment.price_paid_cents), 0),
         ).where(condition),
-        Period.created_at,
+        Payment.created_at,
         range_,
         moment,
     )
@@ -129,8 +129,8 @@ def build_report(range_: VisitRange, moment: date | None = None) -> CashReport:
             range_=range_,
             visits=ConceptTotal(int(visit_count or 0), int(visit_revenue or 0)),
             sales=ConceptTotal(int(sale_count or 0), int(sale_revenue or 0)),
-            new_memberships=_concept_from_periods(session, range_, moment, renewals=False),
-            renewals=_concept_from_periods(session, range_, moment, renewals=True),
+            new_memberships=_concept_from_payments(session, range_, moment, renewals=False),
+            renewals=_concept_from_payments(session, range_, moment, renewals=True),
         )
 
 
@@ -146,7 +146,7 @@ def daily_breakdown(range_: VisitRange, moment: date | None = None) -> list[tupl
         sources = [
             (Visit.visit_at, Visit.price_cents, Visit.id),
             (Sale.sold_at, Sale.total_cents, Sale.id),
-            (Period.created_at, Period.price_paid_cents, Period.id),
+            (Payment.created_at, Payment.price_paid_cents, Payment.id),
         ]
         for column, amount, _ in sources:
             for day, total in session.execute(

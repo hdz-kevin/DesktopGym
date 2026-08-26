@@ -8,7 +8,7 @@ import pytest
 
 from gym.config import Settings
 from gym.data.database import session_scope
-from gym.data.models import Period
+from gym.data.models import Payment
 from gym.domain.enums import MemberGender
 from gym.services import cash as service
 from gym.services import members as members_service
@@ -44,11 +44,11 @@ def vender(precio=1500, cantidad=1, cuando=None) -> None:
     sales_service.checkout(cart, sold_at=cuando)
 
 
-def antedatar_periodos(dias: int) -> None:
-    """Mueve al pasado la fecha de registro de todos los periodos."""
+def antedatar_pagos(dias: int) -> None:
+    """Mueve al pasado la fecha de registro de todos los pagos."""
     with session_scope() as session:
-        for period in session.query(Period).all():
-            period.created_at = datetime.now() - timedelta(days=dias)
+        for payment in session.query(Payment).all():
+            payment.created_at = datetime.now() - timedelta(days=dias)
 
 
 class TestReporte:
@@ -80,7 +80,7 @@ class TestReporte:
         assert reporte.new_memberships.revenue_cents == 40000
         assert reporte.renewals.count == 0
 
-    def test_el_segundo_periodo_cuenta_como_renovacion(self, app_db, app_catalog):
+    def test_el_segundo_pago_cuenta_como_renovacion(self, app_db, app_catalog):
         membership_id = memberships_service.create_membership(alta(), app_catalog["monthly_id"])
         memberships_service.renew_membership(membership_id, app_catalog["biweekly_id"])
 
@@ -123,7 +123,7 @@ class TestReporte:
         visits_service.create_visit(4000, datetime.now() - timedelta(days=40))
         vender(cuando=datetime.now() - timedelta(days=40))
         memberships_service.create_membership(alta(), app_catalog["monthly_id"])
-        antedatar_periodos(40)
+        antedatar_pagos(40)
 
         reporte = service.build_report(VisitRange.TODAY)
         assert reporte.total_revenue_cents == 0

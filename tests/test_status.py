@@ -11,8 +11,8 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from gym.data.models import Member, Membership, Period
-from gym.domain.enums import MembershipStatus, MemberStatus, PeriodStatus
+from gym.data.models import Member, Membership, Payment
+from gym.domain.enums import MembershipStatus, MemberStatus
 
 
 def _member(session, nombre: str, code: str) -> Member:
@@ -22,12 +22,12 @@ def _member(session, nombre: str, code: str) -> Member:
     return member
 
 
-def _membership_con_periodo(session, member, plan, inicio, fin) -> Membership:
+def _membership_con_pago(session, member, plan, inicio, fin) -> Membership:
     membership = Membership(member_id=member.id, plan_category_id=plan.plan_category_id)
     session.add(membership)
     session.flush()
     session.add(
-        Period(
+        Payment(
             membership_id=membership.id,
             plan_id=plan.id,
             start_date=inicio,
@@ -45,60 +45,10 @@ def ahora() -> datetime:
     return datetime.now()
 
 
-class TestPeriodStatus:
-    def test_vigente_en_python(self, session, catalog, ahora):
-        member = _member(session, "Vigente", "10001")
-        m = _membership_con_periodo(
-            session,
-            member,
-            catalog["monthly"],
-            ahora - timedelta(days=5),
-            ahora + timedelta(days=25),
-        )
-        assert m.periods[0].status is PeriodStatus.IN_PROGRESS
-
-    def test_vencido_en_python(self, session, catalog, ahora):
-        member = _member(session, "Vencido", "10002")
-        m = _membership_con_periodo(
-            session,
-            member,
-            catalog["monthly"],
-            ahora - timedelta(days=40),
-            ahora - timedelta(days=10),
-        )
-        assert m.periods[0].status is PeriodStatus.COMPLETED
-
-    def test_filtro_en_sql_coincide_con_python(self, session, catalog, ahora):
-        vigente = _member(session, "Vigente", "10003")
-        vencido = _member(session, "Vencido", "10004")
-        _membership_con_periodo(
-            session,
-            vigente,
-            catalog["monthly"],
-            ahora - timedelta(days=5),
-            ahora + timedelta(days=25),
-        )
-        _membership_con_periodo(
-            session,
-            vencido,
-            catalog["monthly"],
-            ahora - timedelta(days=40),
-            ahora - timedelta(days=10),
-        )
-
-        en_curso = session.scalars(
-            select(Period).where(Period.status == PeriodStatus.IN_PROGRESS.value)
-        ).all()
-
-        assert len(en_curso) == 1
-        assert en_curso[0].status is PeriodStatus.IN_PROGRESS
-        assert en_curso[0].membership.member.name == "Vigente"
-
-
 class TestMembershipStatus:
-    def test_activa_si_algun_periodo_esta_en_curso(self, session, catalog, ahora):
+    def test_activa_si_algun_pago_sigue_vigente(self, session, catalog, ahora):
         member = _member(session, "Socio", "10005")
-        membership = _membership_con_periodo(
+        membership = _membership_con_pago(
             session,
             member,
             catalog["monthly"],
@@ -106,7 +56,7 @@ class TestMembershipStatus:
             ahora - timedelta(days=40),
         )
         session.add(
-            Period(
+            Payment(
                 membership_id=membership.id,
                 plan_id=catalog["monthly"].id,
                 start_date=ahora - timedelta(days=5),
@@ -119,9 +69,9 @@ class TestMembershipStatus:
 
         assert membership.status is MembershipStatus.ACTIVE
 
-    def test_vencida_si_todos_los_periodos_terminaron(self, session, catalog, ahora):
+    def test_vencida_si_todos_los_pagos_terminaron(self, session, catalog, ahora):
         member = _member(session, "Socio", "10006")
-        membership = _membership_con_periodo(
+        membership = _membership_con_pago(
             session,
             member,
             catalog["monthly"],
@@ -130,7 +80,7 @@ class TestMembershipStatus:
         )
         assert membership.status is MembershipStatus.EXPIRED
 
-    def test_sin_periodos_es_vencida(self, session, catalog):
+    def test_sin_pagos_es_vencida(self, session, catalog):
         member = _member(session, "Socio", "10007")
         membership = Membership(member_id=member.id, plan_category_id=catalog["category"].id)
         session.add(membership)
@@ -140,14 +90,14 @@ class TestMembershipStatus:
     def test_filtro_en_sql_coincide_con_python(self, session, catalog, ahora):
         activo = _member(session, "Activo", "10008")
         vencido = _member(session, "Vencido", "10009")
-        _membership_con_periodo(
+        _membership_con_pago(
             session,
             activo,
             catalog["monthly"],
             ahora - timedelta(days=5),
             ahora + timedelta(days=25),
         )
-        _membership_con_periodo(
+        _membership_con_pago(
             session,
             vencido,
             catalog["monthly"],
@@ -172,7 +122,7 @@ class TestMemberStatus:
 
     def test_activo_con_una_membresia_vigente(self, session, catalog, ahora):
         member = _member(session, "Activo", "10011")
-        _membership_con_periodo(
+        _membership_con_pago(
             session,
             member,
             catalog["monthly"],
@@ -185,7 +135,7 @@ class TestMemberStatus:
 
     def test_vencido_con_todas_las_membresias_terminadas(self, session, catalog, ahora):
         member = _member(session, "Vencido", "10012")
-        _membership_con_periodo(
+        _membership_con_pago(
             session,
             member,
             catalog["monthly"],
@@ -198,14 +148,14 @@ class TestMemberStatus:
 
     def test_latest_membership_devuelve_la_mas_reciente(self, session, catalog, ahora):
         member = _member(session, "Socio", "10013")
-        _membership_con_periodo(
+        _membership_con_pago(
             session,
             member,
             catalog["monthly"],
             ahora - timedelta(days=70),
             ahora - timedelta(days=40),
         )
-        reciente = _membership_con_periodo(
+        reciente = _membership_con_pago(
             session,
             member,
             catalog["biweekly"],

@@ -38,12 +38,12 @@ FILTERS: list[tuple[MembershipStatus | None, str]] = [
 
 
 def _expiry_text(membership: Membership) -> str:
-    period = membership.recent_period
-    if period is None:
+    payment = membership.recent_payment
+    if payment is None:
         return "—"
     if membership.status is MembershipStatus.ACTIVE:
-        return f"{format_date(period.end_date)} · en {humanize_delta(period.end_date)}"
-    return f"{format_date(period.end_date)} · vencida"
+        return f"{format_date(payment.end_date)} · en {humanize_delta(payment.end_date)}"
+    return f"{format_date(payment.end_date)} · vencida"
 
 
 class MembershipsPage(Page):

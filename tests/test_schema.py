@@ -59,7 +59,7 @@ def test_renombra_el_catalogo_sin_perder_datos(tmp_path, monkeypatch):
         ("General", "Mensual", 40000)
     ]
     assert membership.plan_category.name == "General"
-    assert membership.periods[0].plan.name == "Mensual"
+    assert membership.payments[0].plan.name == "Mensual"
 
     with engine.connect() as connection:
         tables = {
@@ -70,7 +70,9 @@ def test_renombra_el_catalogo_sin_perder_datos(tmp_path, monkeypatch):
         }
     assert "plan_categories" in tables
     assert "plans" in tables
+    assert "payments" in tables
     assert "membership_types" not in tables
     assert "durations" not in tables
+    assert "periods" not in tables
 
     database.dispose_engine()

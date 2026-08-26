@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from gym.data.database import session_scope
-from gym.data.models import Membership, Period
+from gym.data.models import Membership, Payment
 from gym.domain.enums import MemberGender
 from gym.services import members as members_service
 from gym.services.checkin import verify_code
@@ -25,7 +25,7 @@ def dar_periodo(member_id: int, catalog: dict, dias_restantes: int) -> None:
         session.add(membership)
         session.flush()
         session.add(
-            Period(
+            Payment(
                 membership_id=membership.id,
                 plan_id=catalog["monthly_id"],
                 start_date=ahora - timedelta(days=30),
@@ -72,7 +72,7 @@ class TestAccesoConcedido:
             session.add(membership)
             session.flush()
             session.add(
-                Period(
+                Payment(
                     membership_id=membership.id,
                     plan_id=app_catalog["monthly_id"],
                     start_date=ahora - timedelta(days=30),

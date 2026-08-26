@@ -201,7 +201,7 @@ class PlansPage(Page):
         # Categories table
         self.categories_table = PagedTable[PlanCategory](
             columns=[
-                Column("Categoría", lambda t: t.name, stretch=True, align=Qt.AlignmentFlag.AlignLeft),
+                Column("Categoría", lambda t: t.name, stretch=True),
                 Column(
                     "Planes",
                     lambda t: len(t.plans),

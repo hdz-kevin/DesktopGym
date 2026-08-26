@@ -1,4 +1,4 @@
-"""Casos de uso de membresias, periodos y catalogo de precios."""
+"""Casos de uso de membresias, pagos y catalogo de precios."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
 from gym.data.database import session_scope
-from gym.data.models import Member, Membership, Period, Plan, PlanCategory
+from gym.data.models import Member, Membership, Payment, Plan, PlanCategory
 from gym.domain.dates import start_of_day
 from gym.domain.enums import DurationUnit, MembershipStatus
 from gym.domain.rules import period_end_date
@@ -30,7 +30,7 @@ def _eager():
     return (
         selectinload(Membership.member),
         selectinload(Membership.plan_category),
-        selectinload(Membership.periods).selectinload(Period.plan),
+        selectinload(Membership.payments).selectinload(Payment.plan),
     )
 
 
@@ -42,10 +42,10 @@ def _load_plan(session, plan_id: int) -> Plan:
 
 
 def create_membership(member_id: int, plan_id: int, start: date | None = None) -> int:
-    """Da de alta una membresia con su primer periodo pagado.
+    """Da de alta una membresia con su primer pago.
 
-    El precio se copia del plan al periodo: cambiar la lista de precios
-    despues no debe alterar lo que este socio ya pago.
+    El precio se copia del plan al pago: cambiar la lista de precios despues
+    no debe alterar lo que este socio ya pago.
     """
     with session_scope() as session:
         member = session.get(Member, member_id)
@@ -60,7 +60,7 @@ def create_membership(member_id: int, plan_id: int, start: date | None = None) -
 
         begins = start_of_day(start or date.today())
         session.add(
-            Period(
+            Payment(
                 membership_id=membership.id,
                 plan_id=plan.id,
                 start_date=begins,
@@ -73,9 +73,9 @@ def create_membership(member_id: int, plan_id: int, start: date | None = None) -
 
 
 def renew_membership(membership_id: int, plan_id: int, start: date | None = None) -> int:
-    """Agrega un periodo nuevo.
+    """Registra un pago nuevo.
 
-    Si la membresia sigue vigente, el periodo arranca al dia siguiente del
+    Si la membresia sigue vigente, la vigencia arranca al dia siguiente del
     vencimiento actual para no regalar ni cobrar dias dos veces.
     """
     with session_scope() as session:
@@ -89,7 +89,7 @@ def renew_membership(membership_id: int, plan_id: int, start: date | None = None
             begins = start_of_day(start)
         else:
             last_end = session.scalar(
-                select(func.max(Period.end_date)).where(Period.membership_id == membership_id)
+                select(func.max(Payment.end_date)).where(Payment.membership_id == membership_id)
             )
             now = datetime.now()
             if last_end and last_end > now:
@@ -97,61 +97,17 @@ def renew_membership(membership_id: int, plan_id: int, start: date | None = None
             else:
                 begins = start_of_day(now)
 
-        period = Period(
+        payment = Payment(
             membership_id=membership_id,
             plan_id=plan.id,
             start_date=begins,
             end_date=period_end_date(begins, plan.unit, plan.amount),
             price_paid_cents=plan.price_cents,
         )
-        session.add(period)
+        session.add(payment)
         session.flush()
         logger.info("Membresia %s renovada", membership_id)
-        return period.id
-
-
-def update_period(period_id: int, plan_id: int, start: date, price_cents: int) -> None:
-    """Corrige un periodo ya registrado, por ejemplo tras un cobro mal capturado."""
-    if price_cents < 0:
-        raise ValidationError({"price": "El precio no puede ser negativo."})
-
-    with session_scope() as session:
-        period = session.get(Period, period_id)
-        if period is None:
-            raise NotFoundError("El periodo ya no existe.")
-
-        plan = _load_plan(session, plan_id)
-        begins = start_of_day(start)
-
-        period.plan_id = plan.id
-        period.start_date = begins
-        period.end_date = period_end_date(begins, plan.unit, plan.amount)
-        period.price_paid_cents = price_cents
-        logger.info("Periodo %s actualizado", period_id)
-
-
-def delete_period(period_id: int) -> None:
-    """Elimina un periodo capturado por error.
-
-    Se impide borrar el ultimo: una membresia sin periodos no tendria forma de
-    calcular su estado ni su historial de pagos.
-    """
-    with session_scope() as session:
-        period = session.get(Period, period_id)
-        if period is None:
-            raise NotFoundError("El periodo ya no existe.")
-
-        remaining = session.scalar(
-            select(func.count())
-            .select_from(Period)
-            .where(Period.membership_id == period.membership_id)
-        )
-        if remaining <= 1:
-            raise ServiceError(
-                "No se puede eliminar el único periodo de una membresía. "
-                "Elimina la membresía completa si fue un error."
-            )
-        session.delete(period)
+        return payment.id
 
 
 def delete_membership(membership_id: int) -> None:
@@ -361,7 +317,7 @@ def create_plan(
 def update_plan(plan_id: int, name: str, amount: int, unit: DurationUnit, price_cents: int) -> None:
     """Cambia un plan del catalogo.
 
-    Los periodos ya cobrados conservan su `price_paid_cents`, asi que subir el
+    Los pagos ya cobrados conservan su `price_paid_cents`, asi que subir el
     precio no reescribe la historia.
     """
     errors = validate_plan(name, amount, price_cents)
@@ -386,8 +342,8 @@ def delete_plan(plan_id: int) -> None:
             raise NotFoundError("El plan ya no existe.")
 
         in_use = session.scalar(
-            select(func.count()).select_from(Period).where(Period.plan_id == plan_id)
+            select(func.count()).select_from(Payment).where(Payment.plan_id == plan_id)
         )
         if in_use:
-            raise ServiceError("No se puede eliminar un plan usado en periodos ya registrados.")
+            raise ServiceError("No se puede eliminar un plan usado en pagos ya registrados.")
         session.delete(plan)

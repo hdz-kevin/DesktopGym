@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from gym.config import photos_dir
 from gym.data.database import session_scope
-from gym.data.models import Member, Membership, Period
+from gym.data.models import Member, Membership, Payment
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.domain.rules import generate_member_code
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
@@ -50,7 +50,9 @@ def _eager():
     """
     return (
         selectinload(Member.memberships).selectinload(Membership.plan_category),
-        selectinload(Member.memberships).selectinload(Membership.periods).selectinload(Period.plan),
+        selectinload(Member.memberships)
+        .selectinload(Membership.payments)
+        .selectinload(Payment.plan),
     )
 
 

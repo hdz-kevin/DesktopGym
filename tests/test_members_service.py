@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from gym.data.database import session_scope
-from gym.data.models import Membership, Period
+from gym.data.models import Membership, Payment
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.services import members as service
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
@@ -28,7 +28,7 @@ def dar_membresia(member_id: int, plan_id: int, category_id: int, dias_restantes
         session.add(membership)
         session.flush()
         session.add(
-            Period(
+            Payment(
                 membership_id=membership.id,
                 plan_id=plan_id,
                 start_date=ahora - timedelta(days=30),
