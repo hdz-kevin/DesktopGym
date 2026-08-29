@@ -161,10 +161,6 @@ class ProductsPage(Page):
         self._only_active = False
 
         header = PageHeader("Productos", "Catálogo e inventario de la tienda")
-        header.add_action(secondary_button("Editar", self.edit_selected))
-        header.add_action(secondary_button("Activar/Desactivar", self.toggle_selected))
-        header.add_action(danger_button("Eliminar", self.delete_selected))
-        header.add_action(primary_button("Nuevo producto", self.create_product))
 
         self.stat_total = StatCard("Productos")
         self.stat_active = StatCard("Disponibles")
@@ -186,6 +182,10 @@ class ProductsPage(Page):
         controls.setSpacing(12)
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
+        controls.addWidget(secondary_button("Editar", self.edit_selected))
+        controls.addWidget(secondary_button("Activar/Desactivar", self.toggle_selected))
+        controls.addWidget(danger_button("Eliminar", self.delete_selected))
+        controls.addWidget(primary_button("Nuevo producto", self.create_product))
 
         self.table = PagedTable[Product](
             columns=[
@@ -217,7 +217,7 @@ class ProductsPage(Page):
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.addWidget(header)
         layout.addLayout(stats)
         layout.addLayout(controls)

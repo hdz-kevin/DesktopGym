@@ -263,7 +263,7 @@ class PlansPage(Page):
         tables.addLayout(right, 3)
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.addWidget(header)
         layout.addLayout(tables, 1)
 

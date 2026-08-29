@@ -84,7 +84,6 @@ class TestMembershipsPage:
         page.refresh()
 
         page.renew_selected()
-        page.open_history()
 
 
 class TestMembershipFormDialog:

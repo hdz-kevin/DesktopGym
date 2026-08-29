@@ -56,9 +56,6 @@ class MembershipsPage(Page):
         self._status: MembershipStatus | None = None
 
         header = PageHeader("Membresías", "Altas, renovaciones e historial de pagos")
-        header.add_action(secondary_button("Historial", self.open_history))
-        header.add_action(secondary_button("Renovar", self.renew_selected))
-        header.add_action(primary_button("Nueva membresía", self.create_membership))
 
         self.stat_total = StatCard("Total")
         self.stat_active = StatCard("Activas")
@@ -80,6 +77,8 @@ class MembershipsPage(Page):
         controls.setSpacing(12)
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
+        controls.addWidget(secondary_button("Renovar", self.renew_selected))
+        controls.addWidget(primary_button("Nueva membresía", self.create_membership))
 
         self.table = PagedTable[Membership](
             columns=[
@@ -107,7 +106,7 @@ class MembershipsPage(Page):
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.addWidget(header)
         layout.addLayout(stats)
         layout.addLayout(controls)
@@ -166,11 +165,6 @@ class MembershipsPage(Page):
         if dialog.exec():
             self.window_ref.notify_success("Membresía renovada.")
             self.refresh()
-
-    def open_history(self) -> None:
-        membership = self._require_selection()
-        if membership is not None:
-            self._show_history(membership.id)
 
     def _show_history(self, membership_id: int) -> None:
         dialog = MembershipHistoryDialog(membership_id, self)

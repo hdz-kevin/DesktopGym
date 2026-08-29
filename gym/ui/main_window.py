@@ -128,9 +128,10 @@ class MainWindow(QWidget):
     def __init__(self, settings: Settings) -> None:
         super().__init__()
         self.settings = settings
+        self.setWindowState(Qt.WindowState.WindowMaximized)
         self.setWindowTitle(f"{settings.gym_name} - Sistema de Gimnasio")
-        self.resize(1240, 780)
-        self.setMinimumSize(1040, 660)
+        self.resize(1340, 780)
+        self.setMinimumSize(1100, 700)
 
         self.pages: dict[str, Page] = {}
         self.stack = QStackedWidget(self)

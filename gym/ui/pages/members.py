@@ -54,10 +54,6 @@ class MembersPage(Page):
         self._status: MemberStatus | None = None
 
         header = PageHeader("Socios", "Alta, consulta y edición de socios")
-        header.add_action(secondary_button("Ver perfil", self.open_profile))
-        header.add_action(secondary_button("Editar", self.edit_selected))
-        header.add_action(danger_button("Eliminar", self.delete_selected))
-        header.add_action(primary_button("Nuevo socio", self.create_member))
 
         self.stat_total = StatCard("Total")
         self.stat_active = StatCard("Activos")
@@ -80,6 +76,9 @@ class MembersPage(Page):
         controls.setSpacing(12)
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
+        controls.addWidget(secondary_button("Editar", self.edit_selected))
+        controls.addWidget(danger_button("Eliminar", self.delete_selected))
+        controls.addWidget(primary_button("Nuevo socio", self.create_member))
 
         self.table = PagedTable[Member](
             columns=[
@@ -107,7 +106,7 @@ class MembersPage(Page):
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.addWidget(header)
         layout.addLayout(stats)
         layout.addLayout(controls)
@@ -157,11 +156,6 @@ class MembersPage(Page):
         if dialog.exec():
             self.window_ref.notify_success("Socio actualizado.")
             self.refresh()
-
-    def open_profile(self) -> None:
-        member = self._require_selection()
-        if member is not None:
-            self._show_profile(member)
 
     def _show_profile(self, member: Member) -> None:
         MemberProfileDialog(member, self).exec()

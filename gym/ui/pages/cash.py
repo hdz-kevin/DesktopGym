@@ -120,7 +120,7 @@ class CashPage(Page):
         columns.addWidget(top_card, 2)
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.addWidget(header)
         layout.addWidget(self.chips)
         layout.addLayout(stats)

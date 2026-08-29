@@ -123,9 +123,6 @@ class VisitsPage(Page):
         self._range = VisitRange.TODAY
 
         header = PageHeader("Visitas", "Entradas sueltas de quienes no son socios")
-        header.add_action(secondary_button("Editar", self.edit_selected))
-        header.add_action(danger_button("Eliminar", self.delete_selected))
-        header.add_action(primary_button("Registrar visita", self.create_visit))
 
         self.stat_count = StatCard("Visitas en el periodo")
         self.stat_revenue = StatCard("Ingresos del periodo")
@@ -138,6 +135,13 @@ class VisitsPage(Page):
 
         self.chips = FilterChips(FILTERS)
         self.chips.changed.connect(self._on_range)
+
+        controls = QHBoxLayout()
+        controls.setSpacing(12)
+        controls.addWidget(self.chips, 1)
+        controls.addWidget(secondary_button("Editar", self.edit_selected))
+        controls.addWidget(danger_button("Eliminar", self.delete_selected))
+        controls.addWidget(primary_button("Registrar visita", self.create_visit))
 
         self.table = PagedTable[Visit](
             columns=[
@@ -156,10 +160,10 @@ class VisitsPage(Page):
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.addWidget(header)
         layout.addLayout(stats)
-        layout.addWidget(self.chips)
+        layout.addLayout(controls)
         layout.addWidget(self.table, 1)
 
     def refresh(self) -> None:

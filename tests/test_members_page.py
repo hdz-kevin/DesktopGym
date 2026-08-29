@@ -116,7 +116,6 @@ class TestMembersPage:
 
         page.edit_selected()
         page.delete_selected()
-        page.open_profile()
 
     def test_estado_vacio(self, qtbot, window):
         page = MembersPage(window)
