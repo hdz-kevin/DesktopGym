@@ -82,16 +82,10 @@ class MembershipsPage(Page):
 
         self.table = PagedTable[Membership](
             columns=[
-                Column("Socio", lambda m: m.member.name, stretch=True),
                 Column("Código", lambda m: m.member.code, width=90),
-                Column("Categoría", lambda m: m.plan_category.name, width=130),
-                Column("Vigencia", _expiry_text, width=250),
-                Column(
-                    "Pagado",
-                    lambda m: format_money(m.total_paid_cents),
-                    width=110,
-                    align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                ),
+                Column("Socio", lambda m: m.member.name, stretch=True),
+                Column("Categoría", lambda m: m.plan_category.name, width=120),
+                Column("Vigencia", _expiry_text, width=280),
                 Column(
                     "Estado",
                     lambda m: m.status.label(),
@@ -106,7 +100,7 @@ class MembershipsPage(Page):
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(20)
+        layout.setSpacing(24)
         layout.addWidget(header)
         layout.addLayout(stats)
         layout.addLayout(controls)

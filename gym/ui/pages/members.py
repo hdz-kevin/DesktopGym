@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from gym.data.models import Member
-from gym.domain.dates import format_date
 from gym.domain.enums import MemberStatus
 from gym.services import members as service
 from gym.services.errors import ServiceError
@@ -64,6 +62,8 @@ class MembersPage(Page):
         stats.setSpacing(12)
         for card in (self.stat_total, self.stat_active, self.stat_expired, self.stat_none):
             stats.addWidget(card)
+        # add margin bottom to the stats layout
+        # stats.setContentsMargins(0, 0, 0, 10)
 
         self.search_box = SearchBox("Buscar por nombre o código...")
         self.search_box.setFixedWidth(320)
@@ -84,20 +84,18 @@ class MembersPage(Page):
             columns=[
                 Column("Código", lambda m: m.code, width=90),
                 Column("Nombre", lambda m: m.name, stretch=True),
-                Column("Género", lambda m: m.gender.label(), width=110),
                 Column(
                     "Edad",
                     lambda m: m.age if m.age is not None else "—",
-                    width=70,
-                    align=Qt.AlignmentFlag.AlignCenter,
+                    width=90,
                 ),
+                Column("Género", lambda m: m.gender.label(), width=120),
                 Column(
                     "Estado",
                     lambda m: m.status.label(),
-                    width=140,
+                    width=120,
                     color=lambda m: STATUS_COLORS.get(m.status),
                 ),
-                Column("Socio desde", lambda m: format_date(m.created_at), width=130),
             ],
             page_size=25,
             empty_text="No hay socios que coincidan con la búsqueda.",
@@ -106,7 +104,7 @@ class MembersPage(Page):
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(20)
+        layout.setSpacing(24)
         layout.addWidget(header)
         layout.addLayout(stats)
         layout.addLayout(controls)

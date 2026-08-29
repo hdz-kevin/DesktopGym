@@ -85,9 +85,13 @@ class RecordTableModel(QAbstractTableModel, Generic[T]):
         orientation: Qt.Orientation,
         role: int = Qt.ItemDataRole.DisplayRole,
     ):
-        if orientation != Qt.Orientation.Horizontal or role != Qt.ItemDataRole.DisplayRole:
+        if orientation != Qt.Orientation.Horizontal:
             return None
-        return self._columns[section].title
+        if role == Qt.ItemDataRole.DisplayRole:
+            return self._columns[section].title
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            return int(self._columns[section].align)
+        return None
 
 
 class PagedTable(QWidget, Generic[T]):

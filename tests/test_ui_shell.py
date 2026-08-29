@@ -92,6 +92,28 @@ class TestPagedTable:
         assert table.empty_label.isVisibleTo(table)
         assert table.summary.text() == "Sin resultados"
 
+    def test_encabezado_sigue_la_alineacion_de_la_columna(self, qtbot):
+        columns = [
+            Column[dict]("Nombre", lambda r: r["nombre"], stretch=True),
+            Column[dict](
+                "Edad",
+                lambda r: r["edad"],
+                width=70,
+                align=Qt.AlignmentFlag.AlignCenter,
+            ),
+        ]
+        table = PagedTable[dict](columns, page_size=2)
+        qtbot.addWidget(table)
+
+        left = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        center = Qt.AlignmentFlag.AlignCenter
+        assert table.model.headerData(
+            0, Qt.Orientation.Horizontal, Qt.ItemDataRole.TextAlignmentRole
+        ) == int(left)
+        assert table.model.headerData(
+            1, Qt.Orientation.Horizontal, Qt.ItemDataRole.TextAlignmentRole
+        ) == int(center)
+
     def test_paginacion_calcula_offset(self, qtbot):
         table = self._tabla(qtbot)
         table.set_data([{"nombre": "A", "codigo": "1"}, {"nombre": "B", "codigo": "2"}], total=5)
