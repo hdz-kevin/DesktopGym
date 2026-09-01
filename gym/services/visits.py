@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from gym.data.database import session_scope
 from gym.data.models import Visit
 from gym.domain.dates import day_bounds, month_bounds, week_bounds
-from gym.services.errors import NotFoundError, ValidationError
+from gym.services.errors import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -67,26 +67,6 @@ def create_visit(price_cents: int, visit_at: datetime | None = None) -> int:
         session.flush()
         logger.info("Visita registrada por %s centavos", price_cents)
         return visit.id
-
-
-def update_visit(visit_id: int, price_cents: int, visit_at: datetime) -> None:
-    if price_cents < 0:
-        raise ValidationError({"price": "El precio no puede ser negativo."})
-
-    with session_scope() as session:
-        visit = session.get(Visit, visit_id)
-        if visit is None:
-            raise NotFoundError("La visita ya no existe.")
-        visit.price_cents = price_cents
-        visit.visit_at = visit_at
-
-
-def delete_visit(visit_id: int) -> None:
-    with session_scope() as session:
-        visit = session.get(Visit, visit_id)
-        if visit is None:
-            raise NotFoundError("La visita ya no existe.")
-        session.delete(visit)
 
 
 def list_visits(

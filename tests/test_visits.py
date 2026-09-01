@@ -6,7 +6,7 @@ import pytest
 
 from gym.config import Settings
 from gym.services import visits as service
-from gym.services.errors import NotFoundError, ValidationError
+from gym.services.errors import ValidationError
 from gym.services.visits import VisitRange
 from gym.ui.main_window import MainWindow
 from gym.ui.pages.visits import VisitDialog, VisitsPage
@@ -36,24 +36,6 @@ class TestServicio:
     def test_admite_visita_gratuita(self, app_db):
         service.create_visit(0)
         assert service.totals(VisitRange.TODAY).count == 1
-
-    def test_actualiza_una_visita(self, app_db):
-        visit_id = service.create_visit(4000)
-        nuevo_momento = hoy_a_las(9)
-        service.update_visit(visit_id, 5000, nuevo_momento)
-
-        rows, _ = service.list_visits(VisitRange.TODAY)
-        assert rows[0].price_cents == 5000
-        assert rows[0].visit_at.hour == 9
-
-    def test_elimina_una_visita(self, app_db):
-        visit_id = service.create_visit(4000)
-        service.delete_visit(visit_id)
-        assert service.totals(VisitRange.TODAY).count == 0
-
-    def test_visita_inexistente(self, app_db):
-        with pytest.raises(NotFoundError):
-            service.delete_visit(999)
 
     def test_ordena_de_la_mas_reciente_a_la_mas_vieja(self, app_db):
         service.create_visit(4000, hoy_a_las(8))
@@ -151,11 +133,3 @@ class TestPantalla:
 
         assert dialog.result() == 0
         assert dialog.price_field.error.isVisibleTo(dialog)
-
-    def test_sin_seleccion_no_falla(self, qtbot, window):
-        page = VisitsPage(window)
-        qtbot.addWidget(page)
-        page.refresh()
-
-        page.edit_selected()
-        page.delete_selected()

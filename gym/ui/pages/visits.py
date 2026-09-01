@@ -25,11 +25,9 @@ from gym.ui.widgets.common import (
     FilterChips,
     PageHeader,
     StatCard,
-    danger_button,
     primary_button,
     secondary_button,
 )
-from gym.ui.widgets.feedback import confirm
 from gym.ui.widgets.inputs import Field, MoneyInput
 from gym.ui.widgets.table import Column, PagedTable
 
@@ -42,20 +40,18 @@ class VisitDialog(QDialog):
     def __init__(
         self,
         parent: QWidget | None = None,
-        visit: Visit | None = None,
         default_price_cents: int = 4000,
     ) -> None:
         super().__init__(parent)
-        self.visit = visit
-        self.setWindowTitle("Editar visita" if visit else "Registrar visita")
+        self.setWindowTitle("Registrar visita")
         self.setModal(True)
         self.setMinimumWidth(400)
 
         self.price_input = MoneyInput(self)
-        self.price_input.set_cents(visit.price_cents if visit else default_price_cents)
+        self.price_input.set_cents(default_price_cents)
         self.price_field = Field("Importe cobrado", self.price_input, self)
 
-        moment = visit.visit_at if visit else datetime.now()
+        moment = datetime.now()
         self.date_input = QDateEdit(self)
         self.date_input.setCalendarPopup(True)
         self.date_input.setDisplayFormat("dd/MM/yyyy")
@@ -104,10 +100,7 @@ class VisitDialog(QDialog):
             return
 
         try:
-            if self.visit is None:
-                service.create_visit(self.price_input.cents(), self._moment())
-            else:
-                service.update_visit(self.visit.id, self.price_input.cents(), self._moment())
+            service.create_visit(self.price_input.cents(), self._moment())
         except ServiceError as error:
             self.price_field.show_error(str(error))
             return
@@ -139,8 +132,6 @@ class VisitsPage(Page):
         controls = QHBoxLayout()
         controls.setSpacing(12)
         controls.addWidget(self.chips, 1)
-        controls.addWidget(secondary_button("Editar", self.edit_selected))
-        controls.addWidget(danger_button("Eliminar", self.delete_selected))
         controls.addWidget(primary_button("Registrar visita", self.create_visit))
 
         self.table = PagedTable[Visit](
@@ -149,14 +140,13 @@ class VisitsPage(Page):
                 Column(
                     "Importe",
                     lambda v: format_money(v.price_cents),
-                    width=120,
-                    align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                    width=100,
+                    align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
                 ),
             ],
             page_size=25,
             empty_text="No hay visitas registradas en este periodo.",
         )
-        self.table.row_activated.connect(lambda _: self.edit_selected())
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
@@ -196,41 +186,3 @@ class VisitsPage(Page):
         if dialog.exec():
             self.window_ref.notify_success("Visita registrada.")
             self.refresh()
-
-    def edit_selected(self) -> None:
-        visit = self._require_selection()
-        if visit is None:
-            return
-        if VisitDialog(self, visit).exec():
-            self.window_ref.notify_success("Visita actualizada.")
-            self.refresh()
-
-    def delete_selected(self) -> None:
-        visit = self._require_selection()
-        if visit is None:
-            return
-
-        if not confirm(
-            self,
-            "Eliminar visita",
-            f"¿Eliminar la visita de {format_datetime(visit.visit_at)} "
-            f"por {format_money(visit.price_cents)}?",
-            confirm_text="Eliminar",
-            destructive=True,
-        ):
-            return
-
-        try:
-            service.delete_visit(visit.id)
-        except ServiceError as error:
-            self.window_ref.notify_error(str(error))
-            return
-
-        self.window_ref.notify_success("Visita eliminada.")
-        self.refresh()
-
-    def _require_selection(self) -> Visit | None:
-        visit = self.table.selected_record()
-        if visit is None:
-            self.window_ref.notify("Selecciona una visita de la tabla primero.")
-        return visit
