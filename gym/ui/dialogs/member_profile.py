@@ -1,4 +1,4 @@
-"""Perfil del socio: foto, datos y estado de su membresia."""
+"""Perfil del socio: foto, datos y estado."""
 
 from __future__ import annotations
 
@@ -14,9 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from gym.data.models import Member
-from gym.domain.dates import format_date, humanize_delta
-from gym.domain.enums import MembershipStatus
-from gym.domain.money import format_money
+from gym.domain.dates import format_date
 from gym.ui.pages.helpers import avatar_pixmap
 from gym.ui.theme import TEXT_MUTED
 from gym.ui.widgets.common import Card, secondary_button, status_badge
@@ -76,7 +74,6 @@ class MemberProfileDialog(QDialog):
         layout.setSpacing(14)
         layout.addLayout(heading)
         layout.addWidget(details_card)
-        layout.addWidget(self._membership_card(member))
 
         close_row = QHBoxLayout()
         close_row.addStretch(1)
@@ -87,35 +84,3 @@ class MemberProfileDialog(QDialog):
         label = QLabel(text, self)
         label.setObjectName("formLabel")
         return label
-
-    def _membership_card(self, member: Member) -> Card:
-        card = Card(self)
-        title = QLabel("Membresía actual", card)
-        title.setObjectName("formLabel")
-        card.body.addWidget(title)
-
-        membership = member.latest_membership()
-        if membership is None:
-            card.body.addWidget(QLabel("Este socio aún no tiene membresías.", card))
-            return card
-
-        payment = membership.recent_payment
-        rows = QFormLayout()
-        rows.setSpacing(8)
-        rows.addRow(self._label("Categoría"), QLabel(membership.plan_category.name, card))
-        rows.addRow(self._label("Estado"), status_badge(membership.status))
-
-        if payment:
-            rows.addRow(self._label("Vigencia"), QLabel(format_date(payment.end_date), card))
-            if membership.status is MembershipStatus.ACTIVE:
-                rows.addRow(
-                    self._label("Vence en"),
-                    QLabel(humanize_delta(payment.end_date), card),
-                )
-            rows.addRow(
-                self._label("Total pagado"),
-                QLabel(format_money(membership.total_paid_cents), card),
-            )
-
-        card.body.addLayout(rows)
-        return card
