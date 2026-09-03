@@ -31,12 +31,11 @@ class MembershipHistoryDialog(QDialog):
         self.table = PagedTable[Payment](
             columns=[
                 Column("Vigencia", lambda p: format_range(p.start_date, p.end_date), stretch=True),
-                Column("Plan", lambda p: p.plan.label, width=200),
+                Column("Plan", lambda p: p.plan.label, width=210),
                 Column(
                     "Importe",
                     lambda p: format_money(p.price_paid_cents),
                     width=110,
-                    align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 ),
                 Column(
                     "",
