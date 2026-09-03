@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from gym.data.models import Membership
-from gym.domain.dates import format_date, humanize_delta
+from gym.domain.dates import humanize_delta
 from gym.domain.enums import MembershipStatus
 from gym.services import memberships as service
 from gym.services.errors import ServiceError
@@ -39,9 +39,10 @@ def _expiry_text(membership: Membership) -> str:
     payment = membership.recent_payment
     if payment is None:
         return "—"
+    delta = humanize_delta(payment.end_date)
     if membership.status is MembershipStatus.ACTIVE:
-        return f"{format_date(payment.end_date)} · en {humanize_delta(payment.end_date)}"
-    return f"{format_date(payment.end_date)} · vencida"
+        return f"en {delta}"
+    return f"hace {delta}"
 
 
 class MembershipsPage(Page):
@@ -83,7 +84,7 @@ class MembershipsPage(Page):
                 Column("Código", lambda m: m.member.code, width=90),
                 Column("Socio", lambda m: m.member.name, stretch=True),
                 Column("Plan", lambda m: m.current_plan_label, width=200),
-                Column("Vigencia", _expiry_text, width=280),
+                Column("Vigencia", _expiry_text, width=220),
                 Column(
                     "Estado",
                     lambda m: m.status.label(),

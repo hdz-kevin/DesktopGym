@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel
 
 from gym.config import Settings
+from gym.domain.dates import format_date, format_range, humanize_delta
 from gym.domain.enums import DurationUnit, MemberGender, MembershipStatus
 from gym.services import members as members_service
 from gym.services import memberships as service
@@ -48,6 +49,30 @@ class TestMembershipsPage:
             page.table.model.data(page.table.model.index(0, 2), Qt.ItemDataRole.DisplayRole)
             == "General · Mensual"
         )
+
+    def test_vigencia_es_tiempo_relativo(self, qtbot, window, app_catalog):
+        service.create_membership(alta("Vigente"), app_catalog["monthly_id"])
+        service.create_membership(
+            alta("Vencida"), app_catalog["monthly_id"], start=date(2020, 1, 1)
+        )
+
+        page = MembershipsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+
+        for fila in range(page.table.model.rowCount()):
+            membresia = page.table.model.record_at(fila)
+            texto = page.table.model.data(
+                page.table.model.index(fila, 3), Qt.ItemDataRole.DisplayRole
+            )
+            pago = membresia.recent_payment
+            delta = humanize_delta(pago.end_date)
+            if membresia.status is MembershipStatus.ACTIVE:
+                esperado = f"en {delta}"
+            else:
+                esperado = f"hace {delta}"
+            assert texto == esperado
+            assert format_date(pago.end_date) not in texto
 
     def test_filtra_por_vencidas(self, qtbot, window, app_catalog):
         service.create_membership(alta("Vigente"), app_catalog["monthly_id"])
@@ -184,6 +209,11 @@ class TestHistoryDialog:
             for i in range(2)
         ]
         assert etiquetas.count("Vigente") == 1
+        vigencia = dialog.table.model.data(
+            dialog.table.model.index(0, 0), Qt.ItemDataRole.DisplayRole
+        )
+        pago = dialog.table.model.record_at(0)
+        assert vigencia == format_range(pago.start_date, pago.end_date)
 
 
 class TestPlansPage:
