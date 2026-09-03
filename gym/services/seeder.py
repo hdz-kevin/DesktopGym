@@ -215,8 +215,8 @@ def _seed_memberships(ids: dict[str, int], catalog: dict[str, int]) -> int:
     # Vencio hace meses y se reactivo hoy.
     give("Jorge Pena", general_month, today - timedelta(days=80), renew=True)
 
-    # Dos planes distintos en el historial.
-    mixed = give("Monica Fuentes", general_weeks, today - timedelta(days=40))
+    # Dos planes distintos en el historial, incluyendo un cambio de categoria.
+    mixed = give("Monica Fuentes", student_weeks, today - timedelta(days=40))
     memberships_service.renew_membership(mixed, general_month, start=today - timedelta(days=20))
 
     # Vencidos sin renovar.

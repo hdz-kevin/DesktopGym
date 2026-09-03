@@ -136,6 +136,10 @@ class Plan(Base, TimestampMixin):
     plan_category: Mapped[PlanCategory] = relationship(back_populates="plans")
     payments: Mapped[list[Payment]] = relationship(back_populates="plan")
 
+    @property
+    def label(self) -> str:
+        return f"{self.plan_category.name} · {self.name}"
+
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_plans_amount_positive"),
         CheckConstraint("price_cents >= 0", name="ck_plans_price_non_negative"),
@@ -181,6 +185,16 @@ class Membership(Base, TimestampMixin):
     @property
     def recent_payment(self) -> Payment | None:
         return self.payments[0] if self.payments else None
+
+    @property
+    def current_plan(self) -> Plan | None:
+        payment = self.recent_payment
+        return payment.plan if payment else None
+
+    @property
+    def current_plan_label(self) -> str:
+        plan = self.current_plan
+        return plan.label if plan else "—"
 
     @property
     def total_paid_cents(self) -> int:

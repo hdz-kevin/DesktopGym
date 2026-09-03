@@ -186,6 +186,11 @@ class RenewMembershipDialog(QDialog):
 
         self.plan_input = QComboBox(self)
         _plan_options(self.plan_input)
+        payment = membership.recent_payment
+        if payment is not None:
+            index = self.plan_input.findData(payment.plan_id)
+            if index >= 0:
+                self.plan_input.setCurrentIndex(index)
         self.plan_field = Field("Categoría y plan", self.plan_input, self)
 
         self.start_input = QDateEdit(self)

@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from gym.config import photos_dir
 from gym.data.database import session_scope
-from gym.data.models import Member, Membership, Payment
+from gym.data.models import Member, Membership, Payment, Plan
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.domain.rules import generate_member_code
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
@@ -45,14 +45,15 @@ class MemberStats:
 def _eager():
     """Carga por adelantado todo lo que la interfaz leera fuera de la sesion.
 
-    Sin esto, acceder a `member.memberships[0].plan_category` despues de
+    Sin esto, acceder a `member.memberships[0].current_plan_label` despues de
     cerrar el `session_scope` lanzaria DetachedInstanceError.
     """
     return (
         selectinload(Member.memberships).selectinload(Membership.plan_category),
         selectinload(Member.memberships)
         .selectinload(Membership.payments)
-        .selectinload(Payment.plan),
+        .selectinload(Payment.plan)
+        .selectinload(Plan.plan_category),
     )
 
 

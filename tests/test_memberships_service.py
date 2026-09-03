@@ -117,6 +117,19 @@ class TestRenovar:
         with pytest.raises(NotFoundError):
             service.renew_membership(999, app_catalog["monthly_id"])
 
+    def test_puede_cambiar_de_categoria(self, app_db, app_catalog):
+        student_id = service.create_plan_category("Estudiante")
+        student_month = service.create_plan(student_id, "Mensual", 1, DurationUnit.MONTH, 35000)
+        membership_id = service.create_membership(alta(), student_month)
+
+        service.renew_membership(membership_id, app_catalog["monthly_id"])
+
+        membership = service.get_membership(membership_id)
+        assert membership.plan_category_id == app_catalog["category_id"]
+        assert membership.current_plan is not None
+        assert membership.current_plan.id == app_catalog["monthly_id"]
+        assert membership.current_plan_label == "General · Mensual"
+
 
 class TestListadoYEstadisticas:
     def _poblar(self, app_catalog):

@@ -6,6 +6,7 @@ from datetime import date
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel
 
 from gym.config import Settings
 from gym.domain.enums import DurationUnit, MemberGender, MembershipStatus
@@ -42,6 +43,11 @@ class TestMembershipsPage:
 
         assert page.table.model.rowCount() == 2
         assert page.stat_active.value_label.text() == "2"
+        assert page.table.model.headerData(2, Qt.Orientation.Horizontal) == "Plan"
+        assert (
+            page.table.model.data(page.table.model.index(0, 2), Qt.ItemDataRole.DisplayRole)
+            == "General · Mensual"
+        )
 
     def test_filtra_por_vencidas(self, qtbot, window, app_catalog):
         service.create_membership(alta("Vigente"), app_catalog["monthly_id"])
@@ -144,6 +150,13 @@ class TestRenewDialog:
 
         assert len(service.get_membership(membership_id).payments) == 2
 
+    def test_precarga_el_plan_actual(self, qtbot, window, app_catalog):
+        membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
+        dialog = RenewMembershipDialog(service.get_membership(membership_id), window)
+        qtbot.addWidget(dialog)
+
+        assert dialog.plan_input.currentData() == app_catalog["monthly_id"]
+
 
 class TestHistoryDialog:
     def test_muestra_los_pagos(self, qtbot, window, app_catalog):
@@ -155,6 +168,17 @@ class TestHistoryDialog:
 
         assert dialog.table.model.rowCount() == 2
         assert "Total pagado" in dialog.summary.text()
+        titulos = [
+            label.text()
+            for label in dialog.findChildren(QLabel)
+            if label.objectName() == "pageTitle"
+        ]
+        assert titulos == ["Membresía de Ana Lopez"]
+        planes = [
+            dialog.table.model.data(dialog.table.model.index(i, 1), Qt.ItemDataRole.DisplayRole)
+            for i in range(2)
+        ]
+        assert planes == ["General · Mensual", "General · Mensual"]
         etiquetas = [
             dialog.table.model.data(dialog.table.model.index(i, 3), Qt.ItemDataRole.DisplayRole)
             for i in range(2)

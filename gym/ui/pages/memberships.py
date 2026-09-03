@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from gym.data.models import Membership
 from gym.domain.dates import format_date, humanize_delta
 from gym.domain.enums import MembershipStatus
-from gym.domain.money import format_money
 from gym.services import memberships as service
 from gym.services.errors import ServiceError
 from gym.ui.dialogs.membership_form import MembershipFormDialog, RenewMembershipDialog
@@ -84,7 +82,7 @@ class MembershipsPage(Page):
             columns=[
                 Column("Código", lambda m: m.member.code, width=90),
                 Column("Socio", lambda m: m.member.name, stretch=True),
-                Column("Categoría", lambda m: m.plan_category.name, width=120),
+                Column("Plan", lambda m: m.current_plan_label, width=200),
                 Column("Vigencia", _expiry_text, width=280),
                 Column(
                     "Estado",

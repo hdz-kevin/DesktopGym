@@ -30,7 +30,9 @@ def _eager():
     return (
         selectinload(Membership.member),
         selectinload(Membership.plan_category),
-        selectinload(Membership.payments).selectinload(Payment.plan),
+        selectinload(Membership.payments)
+        .selectinload(Payment.plan)
+        .selectinload(Plan.plan_category),
     )
 
 
@@ -84,6 +86,7 @@ def renew_membership(membership_id: int, plan_id: int, start: date | None = None
             raise NotFoundError("La membresía ya no existe.")
 
         plan = _load_plan(session, plan_id)
+        membership.plan_category_id = plan.plan_category_id
 
         if start is not None:
             begins = start_of_day(start)
