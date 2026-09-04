@@ -29,15 +29,11 @@ class CartLine:
     name: str
     unit_price_cents: int
     quantity: int
-    stock: int | None
+    stock: int
 
     @property
     def subtotal_cents(self) -> int:
         return self.unit_price_cents * self.quantity
-
-    @property
-    def tracks_stock(self) -> bool:
-        return self.stock is not None
 
 
 @dataclass
@@ -68,7 +64,7 @@ class Cart:
         line = self.lines.get(product.id)
         actual = (line.quantity if line else 0) + quantity
 
-        if product.stock is not None and actual > product.stock:
+        if actual > product.stock:
             raise InsufficientStockError(product.name, product.stock)
 
         if line is None:
@@ -89,7 +85,7 @@ class Cart:
         if quantity <= 0:
             del self.lines[product_id]
             return
-        if line.stock is not None and quantity > line.stock:
+        if quantity > line.stock:
             raise InsufficientStockError(line.name, line.stock)
         line.quantity = quantity
 
@@ -122,10 +118,9 @@ def checkout(cart: Cart, sold_at: datetime | None = None) -> int:
             if product is None:
                 raise NotFoundError(f'El producto "{line.name}" ya no existe.')
 
-            if product.stock is not None:
-                if product.stock < line.quantity:
-                    raise InsufficientStockError(product.name, product.stock)
-                product.stock -= line.quantity
+            if product.stock < line.quantity:
+                raise InsufficientStockError(product.name, product.stock)
+            product.stock -= line.quantity
 
             subtotal = product.price_cents * line.quantity
             total += subtotal

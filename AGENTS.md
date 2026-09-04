@@ -21,7 +21,7 @@ uv sync --all-extras                  # instalar dependencias (requiere uv)
 uv run python -m gym                  # ejecutar la aplicación
 uv run python -m gym.seed seed        # llena la base del usuario con datos de prueba
 uv run python -m gym.seed reset       # deja solo el catalogo inicial de precios
-uv run pytest                         # 347 pruebas, ~3 s
+uv run pytest                         # 339 pruebas, ~3 s
 uv run ruff check . && uv run ruff format .
 uv run python packaging/build.py      # compilar el ejecutable a dist/
 uv run python packaging/screenshots.py screenshots   # render de cada pantalla a PNG
@@ -82,7 +82,7 @@ que un gimnasio nota:
   alterar el ticket ni el corte de caja de ayer.
 - **El stock se relee dentro de la transacción de cobro**, no se confía en el
   valor que se leyó al armar el carrito (`services/sales.py: checkout`).
-- **Un `stock` nulo significa "sin control de inventario"**, no cero.
+- **Todo producto lleva stock.** Cero es agotado, no ausencia de control.
 
 ## Convenciones
 

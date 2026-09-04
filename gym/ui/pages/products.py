@@ -31,20 +31,16 @@ from gym.ui.widgets.feedback import alert, confirm
 from gym.ui.widgets.inputs import Field, MoneyInput, SearchBox
 from gym.ui.widgets.table import Column, PagedTable
 
-LOW_STOCK_THRESHOLD = 5
+LOW_STOCK_THRESHOLD = service.LOW_STOCK_THRESHOLD
 
 
 def _stock_text(product: Product) -> str:
-    if product.stock is None:
-        return "Sin control"
     if product.stock == 0:
         return "Agotado"
     return str(product.stock)
 
 
 def _stock_color(product: Product) -> str | None:
-    if product.stock is None:
-        return TEXT_MUTED
     if product.stock == 0:
         return DANGER
     if product.stock <= LOW_STOCK_THRESHOLD:
@@ -67,19 +63,9 @@ class ProductDialog(QDialog):
         self.price_input = MoneyInput(self)
         self.price_field = Field("Precio", self.price_input, self)
 
-        self.track_stock = QCheckBox("Llevar control de inventario", self)
-        self.track_stock.setChecked(True)
         self.stock_input = QSpinBox(self)
         self.stock_input.setRange(0, 999_999)
-        self.track_stock.toggled.connect(self.stock_input.setEnabled)
-
-        stock_box = QWidget(self)
-        stock_layout = QVBoxLayout(stock_box)
-        stock_layout.setContentsMargins(0, 0, 0, 0)
-        stock_layout.setSpacing(6)
-        stock_layout.addWidget(self.track_stock)
-        stock_layout.addWidget(self.stock_input)
-        self.stock_field = Field("Existencias", stock_box, self)
+        self.stock_field = Field("Existencias", self.stock_input, self)
 
         self.active_input = QCheckBox("Disponible para venta", self)
         self.active_input.setChecked(True)
@@ -107,16 +93,14 @@ class ProductDialog(QDialog):
     def _load(self, product: Product) -> None:
         self.name_input.setText(product.name)
         self.price_input.set_cents(product.price_cents)
-        self.track_stock.setChecked(product.stock is not None)
-        self.stock_input.setEnabled(product.stock is not None)
-        self.stock_input.setValue(product.stock or 0)
+        self.stock_input.setValue(product.stock)
         self.active_input.setChecked(product.is_active)
 
     def build_form(self) -> service.ProductForm:
         return service.ProductForm(
             name=self.name_input.text(),
             price_cents=self.price_input.cents() if self.price_input.is_valid() else -1,
-            stock=self.stock_input.value() if self.track_stock.isChecked() else None,
+            stock=self.stock_input.value(),
             is_active=self.active_input.isChecked(),
         )
 
@@ -158,24 +142,26 @@ class ProductsPage(Page):
         super().__init__(window)
         self.window_ref = window
         self._search = ""
-        self._only_active = False
+        self._stock = None
 
         header = PageHeader("Productos", "Catálogo e inventario de la tienda")
 
         self.stat_total = StatCard("Productos")
-        self.stat_active = StatCard("Disponibles")
-        self.stat_low = StatCard(f"Con {LOW_STOCK_THRESHOLD} o menos")
+        self.stat_low_stock = StatCard("Stock bajo")
+        self.stat_out_of_stock = StatCard("Agotados")
 
         stats = QHBoxLayout()
         stats.setSpacing(12)
-        for card in (self.stat_total, self.stat_active, self.stat_low):
+        for card in (self.stat_total, self.stat_low_stock, self.stat_out_of_stock):
             stats.addWidget(card)
 
         self.search_box = SearchBox("Buscar producto...")
         self.search_box.setFixedWidth(320)
         self.search_box.search_changed.connect(self._on_search)
 
-        self.chips = FilterChips([(False, "Todos"), (True, "Solo disponibles")])
+        self.chips = FilterChips(
+            [(None, "Todos"), ("low_stock", "Stock bajo"), ("out_of_stock", "Agotados")]
+        )
         self.chips.changed.connect(self._on_filter)
 
         controls = QHBoxLayout()
@@ -197,7 +183,7 @@ class ProductsPage(Page):
                     align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 ),
                 Column(
-                    "Existencias",
+                    "Stock",
                     _stock_text,
                     width=120,
                     align=Qt.AlignmentFlag.AlignCenter,
@@ -205,7 +191,7 @@ class ProductsPage(Page):
                 ),
                 Column(
                     "Estado",
-                    lambda p: "Disponible" if p.is_active else "Desactivado",
+                    lambda p: "Activo" if p.is_active else "Inactivo",
                     width=120,
                     color=lambda p: None if p.is_active else TEXT_MUTED,
                 ),
@@ -230,7 +216,7 @@ class ProductsPage(Page):
     def load(self) -> None:
         rows, total = service.list_products(
             search=self._search,
-            only_active=self._only_active,
+            stock=self._stock,
             offset=self.table.offset,
             limit=self.table.page_size,
         )
@@ -238,18 +224,19 @@ class ProductsPage(Page):
 
     def load_stats(self) -> None:
         _, total = service.list_products()
-        _, active = service.list_products(only_active=True)
+        _, low_stock = service.list_products(stock="low_stock")
+        _, out_of_stock = service.list_products(stock="out_of_stock")
         self.stat_total.set_value(str(total))
-        self.stat_active.set_value(str(active))
-        self.stat_low.set_value(str(len(service.low_stock(LOW_STOCK_THRESHOLD))))
+        self.stat_low_stock.set_value(str(low_stock))
+        self.stat_out_of_stock.set_value(str(out_of_stock))
 
     def _on_search(self, text: str) -> None:
         self._search = text
         self.table.reset_page()
         self.load()
 
-    def _on_filter(self, only_active: bool) -> None:
-        self._only_active = bool(only_active)
+    def _on_filter(self, stock: str | None) -> None:
+        self._stock = stock
         self.table.reset_page()
         self.load()
 

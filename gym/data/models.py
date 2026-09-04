@@ -250,8 +250,7 @@ class Product(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Nulo significa que el producto no lleva control de inventario.
-    stock: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    stock: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     lines: Mapped[list[ProductSale]] = relationship(back_populates="product")
@@ -259,7 +258,7 @@ class Product(Base, TimestampMixin):
     __table_args__ = (
         Index("ix_products_name", "name"),
         CheckConstraint("price_cents >= 0", name="ck_products_price_non_negative"),
-        CheckConstraint("stock IS NULL OR stock >= 0", name="ck_products_stock_non_negative"),
+        CheckConstraint("stock >= 0", name="ck_products_stock_non_negative"),
     )
 
 

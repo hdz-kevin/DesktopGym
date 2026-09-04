@@ -63,7 +63,19 @@ def run_migrations_online() -> None:
         _run(connection)
 
 
+def _sqlite_foreign_keys(connection, enabled: bool) -> None:
+    """PRAGMA foreign_keys no se puede cambiar a mitad de una transaccion.
+
+    batch_alter_table recrea la tabla con DROP. Si otra tabla apunta a ella
+    (product_sales -> products) y las llaves estan encendidas, el DROP falla.
+    Se habla con el driver crudo para no disparar el autobegin de SQLAlchemy.
+    """
+    value = "ON" if enabled else "OFF"
+    connection.connection.driver_connection.execute(f"PRAGMA foreign_keys={value}")
+
+
 def _run(connection) -> None:
+    _sqlite_foreign_keys(connection, False)
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -74,6 +86,7 @@ def _run(connection) -> None:
     )
     with context.begin_transaction():
         context.run_migrations()
+    _sqlite_foreign_keys(connection, True)
 
 
 if context.is_offline_mode():

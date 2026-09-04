@@ -46,9 +46,13 @@ def upgrade_database() -> None:
     """Aplica las migraciones pendientes sobre la base del usuario."""
     engine = get_engine()
     config = _alembic_config()
-    with engine.begin() as connection:
+    # connect() y no begin(): env.py apaga las FK de SQLite antes de migrar,
+    # y ese PRAGMA no surte efecto dentro de una transaccion ya abierta.
+    with engine.connect() as connection:
         config.attributes["connection"] = connection
         command.upgrade(config, "head")
+        if connection.in_transaction():
+            connection.commit()
     logger.info("Esquema actualizado")
 
 

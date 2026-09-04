@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 
 from gym.data.database import session_scope
 from gym.data.models import Product, ProductSale
@@ -13,17 +13,15 @@ from gym.services.errors import NotFoundError, ServiceError, ValidationError
 
 logger = logging.getLogger(__name__)
 
+LOW_STOCK_THRESHOLD = 5
+
 
 @dataclass
 class ProductForm:
     name: str
     price_cents: int
-    stock: int | None = None
+    stock: int
     is_active: bool = True
-
-    @property
-    def tracks_stock(self) -> bool:
-        return self.stock is not None
 
 
 def validate(form: ProductForm) -> dict[str, str]:
@@ -34,7 +32,9 @@ def validate(form: ProductForm) -> dict[str, str]:
         errors["name"] = "El nombre es demasiado largo."
     if form.price_cents < 0:
         errors["price"] = "El precio no puede ser negativo."
-    if form.stock is not None and form.stock < 0:
+    if form.stock is None:
+        errors["stock"] = "El stock es obligatorio."
+    elif form.stock < 0:
         errors["stock"] = "El stock no puede ser negativo."
     return errors
 
@@ -110,8 +110,6 @@ def adjust_stock(product_id: int, delta: int) -> int:
         product = session.get(Product, product_id)
         if product is None:
             raise NotFoundError("El producto ya no existe.")
-        if product.stock is None:
-            raise ServiceError("Este producto no lleva control de inventario.")
 
         nuevo = product.stock + delta
         if nuevo < 0:
@@ -120,26 +118,31 @@ def adjust_stock(product_id: int, delta: int) -> int:
         return nuevo
 
 
-def _apply_filters(statement, search: str, only_active: bool):
+def _apply_filters(statement, search: str, only_active: bool, stock: str | None = None):
     if search:
         statement = statement.where(Product.name.ilike(f"%{search.strip()}%"))
     if only_active:
         statement = statement.where(Product.is_active.is_(True))
+    if stock == "low_stock":
+        statement = statement.where(Product.stock > 0, Product.stock <= LOW_STOCK_THRESHOLD)
+    elif stock == "out_of_stock":
+        statement = statement.where(Product.stock == 0)
     return statement
 
 
 def list_products(
     search: str = "",
     only_active: bool = False,
+    stock: str | None = None,
     offset: int = 0,
     limit: int = 25,
 ) -> tuple[list[Product], int]:
     with session_scope() as session:
         total = session.scalar(
-            _apply_filters(select(func.count()).select_from(Product), search, only_active)
+            _apply_filters(select(func.count()).select_from(Product), search, only_active, stock)
         )
         rows = session.scalars(
-            _apply_filters(select(Product), search, only_active)
+            _apply_filters(select(Product), search, only_active, stock)
             .order_by(Product.name)
             .offset(offset)
             .limit(limit)
@@ -157,11 +160,7 @@ def sellable_products(search: str = "", limit: int = 50) -> list[Product]:
         statement = select(Product).where(Product.is_active.is_(True))
         if search:
             statement = statement.where(Product.name.ilike(f"%{search.strip()}%"))
-        statement = (
-            statement.where(or_(Product.stock.is_(None), Product.stock > 0))
-            .order_by(Product.name)
-            .limit(limit)
-        )
+        statement = statement.where(Product.stock > 0).order_by(Product.name).limit(limit)
         return list(session.scalars(statement).all())
 
 
@@ -173,14 +172,13 @@ def get_product(product_id: int) -> Product:
         return product
 
 
-def low_stock(threshold: int = 5) -> list[Product]:
+def low_stock(threshold: int = LOW_STOCK_THRESHOLD) -> list[Product]:
     with session_scope() as session:
         return list(
             session.scalars(
                 select(Product)
                 .where(
                     Product.is_active.is_(True),
-                    Product.stock.is_not(None),
                     Product.stock <= threshold,
                 )
                 .order_by(Product.stock)

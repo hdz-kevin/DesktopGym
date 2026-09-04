@@ -41,9 +41,14 @@ class TestCatalogo:
         rows, total = products_service.list_products()
         assert total == 1 and rows[0].name == "Agua"
 
-    def test_producto_sin_control_de_inventario(self, app_db):
-        product_id = producto(stock=None)
-        assert products_service.get_product(product_id).stock is None
+    def test_rechaza_stock_nulo(self, app_db):
+        with pytest.raises(ValidationError) as exc:
+            producto(stock=None)
+        assert "stock" in exc.value.errors
+
+    def test_admite_stock_agotado(self, app_db):
+        product_id = producto(stock=0)
+        assert products_service.get_product(product_id).stock == 0
 
     @pytest.mark.parametrize(
         ("nombre", "precio", "stock", "campo"),
@@ -51,6 +56,7 @@ class TestCatalogo:
             ("", 1500, 10, "name"),
             ("Agua", -1, 10, "price"),
             ("Agua", 1500, -5, "stock"),
+            ("Agua", 1500, None, "stock"),
         ],
     )
     def test_valida_los_datos(self, app_db, nombre, precio, stock, campo):
@@ -74,6 +80,21 @@ class TestCatalogo:
         _, total = products_service.list_products(only_active=True)
         assert total == 1
 
+    def test_filtra_agotados(self, app_db):
+        producto("Agua", stock=5)
+        producto("Toalla", stock=0)
+
+        rows, total = products_service.list_products(stock="out_of_stock")
+        assert total == 1 and rows[0].name == "Toalla"
+
+    def test_filtra_stock_bajo(self, app_db):
+        producto("Agua", stock=5)
+        producto("Toalla", stock=0)
+        producto("Electrolit", stock=40)
+
+        rows, total = products_service.list_products(stock="low_stock")
+        assert total == 1 and rows[0].name == "Agua"
+
     def test_busca_por_nombre(self, app_db):
         producto("Agua natural")
         producto("Barra proteica")
@@ -90,11 +111,6 @@ class TestCatalogo:
         product_id = producto(stock=3)
         with pytest.raises(ServiceError):
             products_service.adjust_stock(product_id, -10)
-
-    def test_no_ajusta_productos_sin_control(self, app_db):
-        product_id = producto(stock=None)
-        with pytest.raises(ServiceError, match="control de inventario"):
-            products_service.adjust_stock(product_id, 5)
 
     def test_borra_un_producto_sin_ventas(self, app_db):
         product_id = producto()
@@ -115,18 +131,17 @@ class TestCatalogo:
         producto("Disponible", stock=5)
         producto("Agotado", stock=0)
         producto("Desactivado", stock=5, activo=False)
-        producto("Sin control", stock=None)
 
         nombres = {p.name for p in products_service.sellable_products()}
-        assert nombres == {"Disponible", "Sin control"}
+        assert nombres == {"Disponible"}
 
     def test_stock_bajo(self, app_db):
         producto("Casi agotado", stock=2)
         producto("Con inventario", stock=50)
-        producto("Sin control", stock=None)
+        producto("Agotado", stock=0)
 
         bajos = products_service.low_stock(threshold=5)
-        assert [p.name for p in bajos] == ["Casi agotado"]
+        assert [p.name for p in bajos] == ["Agotado", "Casi agotado"]
 
 
 class TestCarrito:
@@ -160,12 +175,6 @@ class TestCarrito:
 
         with pytest.raises(InsufficientStockError):
             cart.add(product, 2)
-
-    def test_producto_sin_control_no_tiene_tope(self, app_db):
-        product = products_service.get_product(producto("Agua", stock=None))
-        cart = Cart()
-        cart.add(product, 500)
-        assert cart.item_count == 500
 
     def test_cambiar_cantidad_a_cero_quita_la_linea(self, app_db):
         product_id = producto("Agua")
@@ -258,14 +267,6 @@ class TestCobro:
         with pytest.raises(ServiceError, match="vacío"):
             service.checkout(Cart())
 
-    def test_producto_sin_control_no_altera_inventario(self, app_db):
-        product_id = producto("Agua", stock=None)
-        cart = Cart()
-        cart.add(products_service.get_product(product_id), 5)
-        service.checkout(cart)
-
-        assert products_service.get_product(product_id).stock is None
-
     def test_totales_del_periodo(self, app_db):
         product_id = producto("Agua", 1500, stock=100)
         for _ in range(3):
@@ -313,15 +314,44 @@ class TestPantallaProductos:
         assert page.table.model.rowCount() == 2
         assert page.stat_total.value_label.text() == "2"
 
-    def test_cuenta_los_de_stock_bajo(self, qtbot, window):
-        producto("Casi agotado", stock=1)
-        producto("Con inventario", stock=100)
+    def test_cuenta_stock_bajo_y_agotados(self, qtbot, window):
+        producto("Agua", stock=5)
+        producto("Toalla", stock=0)
+        producto("Cafe", stock=3)
+        producto("Electrolit", stock=40)
 
         page = ProductsPage(window)
         qtbot.addWidget(page)
         page.refresh()
 
-        assert page.stat_low.value_label.text() == "1"
+        assert page.stat_total.value_label.text() == "4"
+        assert page.stat_low_stock.value_label.text() == "2"
+        assert page.stat_out_of_stock.value_label.text() == "1"
+
+    def test_filtra_agotados_en_la_tabla(self, qtbot, window):
+        producto("Agua", stock=5)
+        producto("Toalla", stock=0)
+
+        page = ProductsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+        page._on_filter("out_of_stock")
+
+        assert page.table.model.rowCount() == 1
+        assert page.table.model.record_at(0).name == "Toalla"
+
+    def test_filtra_stock_bajo_en_la_tabla(self, qtbot, window):
+        producto("Agua", stock=5)
+        producto("Toalla", stock=0)
+        producto("Electrolit", stock=40)
+
+        page = ProductsPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+        page._on_filter("low_stock")
+
+        assert page.table.model.rowCount() == 1
+        assert page.table.model.record_at(0).name == "Agua"
 
     def test_crear_desde_el_dialogo(self, qtbot, window):
         dialog = ProductDialog(window)
@@ -333,17 +363,6 @@ class TestPantallaProductos:
 
         rows, _ = products_service.list_products()
         assert rows[0].name == "Agua" and rows[0].stock == 20
-
-    def test_producto_sin_control_de_inventario(self, qtbot, window):
-        dialog = ProductDialog(window)
-        qtbot.addWidget(dialog)
-        dialog.name_input.setText("Servicio")
-        dialog.price_input.setText("50")
-        dialog.track_stock.setChecked(False)
-        dialog.accept()
-
-        rows, _ = products_service.list_products()
-        assert rows[0].stock is None
 
     def test_precio_invalido_muestra_error(self, qtbot, window):
         dialog = ProductDialog(window)

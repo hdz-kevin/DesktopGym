@@ -40,8 +40,6 @@ RANGES = [
 
 
 def _stock_text(product: Product) -> str:
-    if product.stock is None:
-        return "—"
     return str(product.stock)
 
 
@@ -133,7 +131,7 @@ class SalesPage(Page):
                     _stock_text,
                     width=70,
                     align=Qt.AlignmentFlag.AlignCenter,
-                    color=lambda p: WARNING if p.stock is not None and p.stock <= 5 else None,
+                    color=lambda p: WARNING if p.stock <= 5 else None,
                 ),
             ],
             page_size=100,
