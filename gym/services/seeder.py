@@ -84,17 +84,18 @@ _MEMBERS: list[tuple[str, MemberGender, date | None]] = [
     ("Ivan Guerrero", MemberGender.MALE, date(2003, 11, 20)),
 ]
 
-_PRODUCTS: list[tuple[str, int, int | None]] = [
-    ("Agua 600 ml", 1500, 80),
-    ("Electrolit", 2800, 40),
-    ("Barra proteica", 3500, 8),
-    ("Toalla", 8000, 15),
-    ("Guantes de gym", 12000, 0),
-    ("Entrenamiento personal", 20000, None),
-    ("Cafe americano", 2500, 30),
-    ("Proteina (scoop)", 4500, 3),
-    ("Playera TecnoGym", 25000, 10),
-    ("Magnesio", 1800, 25),
+_PRODUCTS: list[tuple[str, int, int]] = [
+    ("Agua 1L", 1800, 72),
+    ("Agua 1.5L", 2200, 38),
+    ("Barra Proteica Met-Rx 30g", 4200, 9),
+    ("Electrolit", 3000, 32),
+    ("Monster 500 ml", 3800, 20),
+    ("Scoop Proteina", 4800, 5),
+    ("Scoop Creatina", 2800, 14),
+    ("Proteina Naked Vainilla 600g", 54900, 7),
+    ("Creatina Bird Man 500g", 42900, 2),
+    ("Proteina Gold Standar 2kg", 134900, 5),
+    ("Preentreno Psychotic 200g", 38900, 6),
 ]
 
 
@@ -266,32 +267,32 @@ def _seed_products() -> dict[str, Product]:
             products_service.ProductForm(name=name, price_cents=price_cents, stock=stock)
         )
         created[name] = products_service.get_product(product_id)
-    playera = created["Playera TecnoGym"]
-    products_service.set_active(playera.id, False)
-    created["Playera TecnoGym"] = products_service.get_product(playera.id)
+    psychotic = created["Preentreno Psychotic 200g"]
+    products_service.set_active(psychotic.id, False)
+    created["Preentreno Psychotic 200g"] = products_service.get_product(psychotic.id)
     return created
 
 
 def _seed_sales(products: dict[str, Product]) -> int:
     tickets: list[tuple[int, list[tuple[str, int]]]] = [
-        (0, [("Agua 600 ml", 2), ("Cafe americano", 1)]),
-        (0, [("Electrolit", 1), ("Barra proteica", 1)]),
-        (0, [("Entrenamiento personal", 1)]),
-        (0, [("Agua 600 ml", 1), ("Magnesio", 1)]),
-        (1, [("Cafe americano", 3)]),
-        (2, [("Toalla", 1), ("Agua 600 ml", 1)]),
-        (3, [("Electrolit", 2)]),
-        (5, [("Proteina (scoop)", 1)]),
-        (6, [("Agua 600 ml", 4), ("Cafe americano", 2)]),
-        (8, [("Magnesio", 2)]),
-        (12, [("Toalla", 1)]),
-        (15, [("Agua 600 ml", 1), ("Barra proteica", 1), ("Cafe americano", 1)]),
-        (20, [("Electrolit", 1)]),
-        (22, [("Entrenamiento personal", 1)]),
-        (28, [("Agua 600 ml", 3)]),
-        (35, [("Toalla", 1), ("Magnesio", 1)]),
-        (40, [("Cafe americano", 1)]),
-        (50, [("Agua 600 ml", 2)]),
+        (0, [("Agua 1L", 2), ("Electrolit", 1)]),
+        (0, [("Monster 500 ml", 1), ("Barra Proteica Met-Rx 30g", 1)]),
+        (0, [("Scoop Proteina", 1)]),
+        (0, [("Agua 1.5L", 1), ("Scoop Creatina", 1)]),
+        (1, [("Agua 1L", 3)]),
+        (2, [("Electrolit", 2), ("Monster 500 ml", 1)]),
+        (3, [("Barra Proteica Met-Rx 30g", 2)]),
+        (5, [("Scoop Creatina", 1), ("Agua 1L", 1)]),
+        (6, [("Agua 1.5L", 2), ("Electrolit", 1)]),
+        (8, [("Proteina Naked Vainilla 600g", 1)]),
+        (12, [("Monster 500 ml", 1), ("Barra Proteica Met-Rx 30g", 1)]),
+        (15, [("Agua 1L", 2), ("Scoop Proteina", 1)]),
+        (20, [("Creatina Bird Man 500g", 1)]),
+        (22, [("Scoop Creatina", 1), ("Preentreno Psychotic 200g", 1)]),
+        (28, [("Agua 1L", 4), ("Monster 500 ml", 1)]),
+        (35, [("Proteina Gold Standar 2kg", 1)]),
+        (40, [("Electrolit", 1), ("Barra Proteica Met-Rx 30g", 1)]),
+        (50, [("Creatina Bird Man 500g", 1), ("Agua 1L", 1)]),
     ]
     for days_ago, lines in tickets:
         cart = Cart()
@@ -299,9 +300,7 @@ def _seed_sales(products: dict[str, Product]) -> int:
             cart.add(products[name], quantity)
         sales_service.checkout(cart, sold_at=_at(days_ago, 11 + days_ago % 7, 15))
         for name, quantity in lines:
-            product = products[name]
-            if product.stock is not None:
-                product.stock -= quantity
+            products[name].stock -= quantity
     return len(tickets)
 
 

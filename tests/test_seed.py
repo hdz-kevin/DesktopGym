@@ -89,7 +89,7 @@ class TestSeed:
         assert summary.members == stats.total == 32
         assert summary.memberships == memberships.total
         assert summary.visits == visit_totals(VisitRange.ALL).count
-        assert summary.products == productos == 10
+        assert summary.products == productos == 11
         assert summary.sales == sales_service.totals(VisitRange.ALL).count == 18
 
         assert stats.active > 0
@@ -101,7 +101,6 @@ class TestSeed:
         assert sales_service.totals(VisitRange.TODAY).count > 0
         assert products_service.low_stock()
         assert any(not p.is_active for p in products_service.list_products()[0])
-        assert any(p.stock is None for p in products_service.list_products()[0])
         assert any(p.stock == 0 for p in products_service.list_products()[0])
 
     def test_cabe_en_mas_de_una_pagina_de_socios(self, app_db):
