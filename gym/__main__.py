@@ -12,7 +12,7 @@ from gym.data.database import init_engine
 from gym.data.schema import prepare_database
 from gym.logging_setup import configure_logging, install_exception_hook
 from gym.single_instance import InstanceLock
-from gym.ui.theme import STYLESHEET
+from gym.ui.theme import apply_appearance
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def main() -> int:
 
     app = QApplication(sys.argv)
     app.setApplicationName("TecnoGym")
-    app.setStyleSheet(STYLESHEET)
+    apply_appearance(app)
 
     lock = InstanceLock()
     if not lock.acquire():

@@ -148,9 +148,13 @@ class TestMembershipFormDialog:
         alta("Ana Lopez")
         dialog = MembershipFormDialog(window)
         qtbot.addWidget(dialog)
+
+        assert not dialog.results.isVisibleTo(dialog)
+
         dialog._search_members("ana")
 
         assert dialog.results.count() == 1
+        assert dialog.results.isVisibleTo(dialog)
 
 
 class TestRenewDialog:

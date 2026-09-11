@@ -34,12 +34,12 @@ class NavItem:
 
 
 NAV_ITEMS = [
-    NavItem("kiosk", "Bienvenida", "F1", "Gimnasio"),
-    NavItem("members", "Socios", "F2", "Gimnasio"),
-    NavItem("memberships", "Membresías", "F3", "Gimnasio"),
-    NavItem("visits", "Visitas", "F4", "Gimnasio"),
-    NavItem("plans", "Planes", "F5", "Gimnasio"),
-    NavItem("cash", "Corte de caja", "F6", "Gimnasio"),
+    NavItem("kiosk", "Bienvenida", "F1", "Principal"),
+    NavItem("members", "Socios", "F2", "Principal"),
+    NavItem("memberships", "Membresías", "F3", "Principal"),
+    NavItem("visits", "Visitas", "F4", "Principal"),
+    NavItem("plans", "Planes", "F5", "Principal"),
+    NavItem("cash", "Corte de caja", "F6", "Principal"),
     NavItem("products", "Productos", "F7", "Tienda"),
     NavItem("sales", "Ventas", "F8", "Tienda"),
     NavItem("settings", "Ajustes", "F9", "Sistema"),
@@ -64,6 +64,7 @@ class Sidebar(QWidget):
     def __init__(self, settings: Settings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("sidebar")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedWidth(224)
 
         self.buttons: dict[str, QPushButton] = {}
@@ -71,23 +72,18 @@ class Sidebar(QWidget):
         self._group.setExclusive(True)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 20, 12, 16)
+        layout.setContentsMargins(12, 8, 12, 16)
         layout.setSpacing(2)
 
         self.title = QLabel(self)
         self.title.setObjectName("sidebarTitle")
-        self.title.setWordWrap(True)
-        self.title.setContentsMargins(6, 0, 6, 0)
-        layout.addWidget(self.title)
+        self.title.hide()
 
         self.address = QLabel(self)
         self.address.setObjectName("sidebarSubtitle")
-        self.address.setWordWrap(True)
-        self.address.setContentsMargins(6, 0, 6, 0)
-        layout.addWidget(self.address)
+        self.address.hide()
 
         self.set_gym(settings.gym_name, settings.gym_address)
-        layout.addSpacing(10)
 
         current_section = ""
         for item in NAV_ITEMS:
@@ -116,7 +112,6 @@ class Sidebar(QWidget):
     def set_gym(self, name: str, address: str) -> None:
         self.title.setText(name)
         self.address.setText(address)
-        self.address.setVisible(bool(address))
 
     def mark_active(self, key: str) -> None:
         button = self.buttons.get(key)

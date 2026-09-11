@@ -60,6 +60,7 @@ class MembershipFormDialog(QDialog):
 
         self.results = QListWidget(self)
         self.results.setMaximumHeight(150)
+        self.results.setVisible(False)
         self.results.itemClicked.connect(self._select_member)
 
         self.selected_label = QLabel("Ningún socio seleccionado", self)
@@ -117,6 +118,7 @@ class MembershipFormDialog(QDialog):
             item = QListWidgetItem(f"{member.name}  ·  {member.code}")
             item.setData(Qt.ItemDataRole.UserRole, (member.id, member.name))
             self.results.addItem(item)
+        self.results.setVisible(self.results.count() > 0)
 
     def _select_member(self, item: QListWidgetItem) -> None:
         member_id, name = item.data(Qt.ItemDataRole.UserRole)

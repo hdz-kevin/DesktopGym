@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication
+
 BG = "#f4f5f7"
 SURFACE = "#ffffff"
 BORDER = "#e2e5ea"
@@ -29,11 +32,11 @@ QWidget {{
 }}
 QMainWindow, #content {{ background: {BG}; }}
 
-#sidebar {{ background: {SIDEBAR_BG}; }}
-#sidebarTitle {{ color: #ffffff; font-size: 17px; font-weight: 700; }}
-#sidebarSubtitle {{ color: {SIDEBAR_TEXT}; font-size: 12px; }}
+#sidebar {{ background: {SURFACE}; }}
+#sidebarTitle {{ color: {TEXT}; font-size: 17px; font-weight: 700; }}
+#sidebarSubtitle {{ color: {TEXT_MUTED}; font-size: 12px; }}
 #sidebarSection {{
-    color: #5c6879; font-size: 11px; font-weight: 700; padding: 14px 16px 4px 16px;
+    color: #5c6879; font-size: 11px; font-weight: 700; padding: 8px 16px 4px 16px;
 }}
 QPushButton#navButton {{
     background: transparent; color: {SIDEBAR_TEXT}; border: none;
@@ -86,6 +89,15 @@ QComboBox::drop-down {{ border: none; width: 22px; }}
 QComboBox QAbstractItemView {{
     background: {SURFACE}; border: 1px solid {BORDER};
     selection-background-color: {PRIMARY}; selection-color: #ffffff; outline: none;
+}}
+
+QListWidget {{
+    background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 8px;
+    outline: none; padding: 4px;
+}}
+QListWidget::item {{ padding: 8px 10px; }}
+QListWidget::item:selected {{
+    background: #e5edff; color: {TEXT};
 }}
 
 QTableView {{
@@ -142,3 +154,10 @@ QDialog {{ background: {BG}; }}
 QLabel#formLabel {{ color: {TEXT_MUTED}; font-size: 12px; font-weight: 600; }}
 QCheckBox {{ spacing: 8px; }}
 """
+
+
+def apply_appearance(app: QApplication) -> None:
+    """Fusion + tema claro. Sin esto, Qt hereda el modo oscuro del sistema."""
+    app.setStyle("Fusion")
+    app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+    app.setStyleSheet(STYLESHEET)
