@@ -195,8 +195,6 @@ class PlansPage(Page):
             "Planes",
             "Planes agrupados por categorías.",
         )
-        header.add_action(secondary_button("Nueva categoría", self.create_category))
-        header.add_action(primary_button("Nuevo plan", self.create_plan))
 
         # Categories table
         self.categories_table = PagedTable[PlanCategory](
@@ -211,13 +209,15 @@ class PlansPage(Page):
             ],
             page_size=50,
             empty_text="No hay categorías de planes. Crea la primera.",
+            paginated=False,
         )
         self.categories_table.row_activated.connect(lambda _: self.edit_category())
 
         category_buttons = QHBoxLayout()
-        category_buttons.addWidget(secondary_button("Editar categoría", self.edit_category))
-        category_buttons.addWidget(danger_button("Eliminar categoría", self.delete_category))
         category_buttons.addStretch(1)
+        category_buttons.addWidget(danger_button("Eliminar categoría", self.delete_category))
+        category_buttons.addWidget(secondary_button("Editar categoría", self.edit_category))
+        category_buttons.addWidget(primary_button("Nueva categoría", self.create_category))
 
         # Plans table
         self.plans_table = PagedTable[Plan](
@@ -238,13 +238,15 @@ class PlansPage(Page):
             ],
             page_size=50,
             empty_text="No hay planes configurados.",
+            paginated=False,
         )
         self.plans_table.row_activated.connect(lambda _: self.edit_plan())
 
         plan_buttons = QHBoxLayout()
-        plan_buttons.addWidget(secondary_button("Editar plan", self.edit_plan))
-        plan_buttons.addWidget(danger_button("Eliminar plan", self.delete_plan))
         plan_buttons.addStretch(1)
+        plan_buttons.addWidget(danger_button("Eliminar plan", self.delete_plan))
+        plan_buttons.addWidget(secondary_button("Editar plan", self.edit_plan))
+        plan_buttons.addWidget(primary_button("Nuevo plan", self.create_plan))
 
         tables = QHBoxLayout()
         tables.setSpacing(16)
@@ -266,6 +268,7 @@ class PlansPage(Page):
         layout.setSpacing(20)
         layout.addWidget(header)
         layout.addLayout(tables, 1)
+        layout.addStretch(1)
 
     def refresh(self) -> None:
         categories = service.list_plan_categories()
