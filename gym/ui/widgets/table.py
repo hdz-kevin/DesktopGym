@@ -105,10 +105,12 @@ class PagedTable(QWidget, Generic[T]):
         columns: list[Column[T]],
         page_size: int = 25,
         empty_text: str = "No hay registros para mostrar.",
+        paginated: bool = True,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.page_size = page_size
+        self._paginated = paginated
         self._page = 1
         self._total = 0
 
@@ -148,7 +150,8 @@ class PagedTable(QWidget, Generic[T]):
         self.prev_button.clicked.connect(lambda: self.go_to_page(self._page - 1))
         self.next_button.clicked.connect(lambda: self.go_to_page(self._page + 1))
 
-        pager = QHBoxLayout()
+        self.pager = QWidget(self)
+        pager = QHBoxLayout(self.pager)
         pager.setContentsMargins(2, 0, 2, 0)
         pager.addWidget(self.summary)
         pager.addStretch(1)
@@ -160,7 +163,9 @@ class PagedTable(QWidget, Generic[T]):
         layout.setSpacing(10)
         layout.addWidget(self.view, 1)
         layout.addWidget(self.empty_label)
-        layout.addLayout(pager)
+        layout.addWidget(self.pager)
+        if not paginated:
+            self.pager.hide()
 
     @property
     def page(self) -> int:
@@ -187,6 +192,7 @@ class PagedTable(QWidget, Generic[T]):
         self.summary.setText(f"{first}-{last} de {total}" if has_rows else "Sin resultados")
         self.prev_button.setEnabled(self._page > 1)
         self.next_button.setEnabled(self._page < self.page_count)
+        self.pager.setVisible(self._paginated and self.page_count > 1)
 
     def go_to_page(self, page: int) -> None:
         page = max(1, min(page, self.page_count))

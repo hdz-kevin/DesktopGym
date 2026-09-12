@@ -84,6 +84,7 @@ class TestPagedTable:
 
         assert table.model.rowCount() == 1
         assert table.summary.text() == "1-1 de 1"
+        assert not table.pager.isVisibleTo(table)
 
     def test_estado_vacio(self, qtbot):
         table = self._tabla(qtbot)
@@ -91,6 +92,32 @@ class TestPagedTable:
 
         assert table.empty_label.isVisibleTo(table)
         assert table.summary.text() == "Sin resultados"
+        assert not table.pager.isVisibleTo(table)
+
+    def test_muestra_el_pager_si_hay_varias_paginas(self, qtbot):
+        table = self._tabla(qtbot)
+        table.set_data([{"nombre": "A", "codigo": "1"}, {"nombre": "B", "codigo": "2"}], total=5)
+
+        assert table.pager.isVisibleTo(table)
+
+    def test_sin_paginar_nunca_muestra_el_pager(self, qtbot):
+        columns = [
+            Column[dict]("Nombre", lambda r: r["nombre"], stretch=True),
+            Column[dict]("Código", lambda r: r["codigo"], width=90),
+        ]
+        table = PagedTable[dict](columns, page_size=2, paginated=False)
+        qtbot.addWidget(table)
+        table.set_data(
+            [
+                {"nombre": "A", "codigo": "1"},
+                {"nombre": "B", "codigo": "2"},
+                {"nombre": "C", "codigo": "3"},
+            ],
+            total=3,
+        )
+
+        assert table.model.rowCount() == 3
+        assert not table.pager.isVisibleTo(table)
 
     def test_encabezado_sigue_la_alineacion_de_la_columna(self, qtbot):
         columns = [

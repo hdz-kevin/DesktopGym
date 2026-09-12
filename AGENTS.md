@@ -131,7 +131,7 @@ usan clases de servicio.
 
 ## Estado y límites
 
-Funciona de punta a punta: los nueve módulos están implementados y probados, y
+Funciona de punta a punta: los diez módulos están implementados y probados, y
 el ejecutable arranca en una máquina sin Python. Lo que **no** tiene, por
 decisión de alcance: no hay usuarios ni inicio de sesión (la PC de recepción es
 de una sola persona), no hay sincronización entre computadoras, no hay impresión

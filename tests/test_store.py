@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import pytest
+from PySide6.QtCore import Qt
 
 from gym.config import Settings
 from gym.services import products as products_service
@@ -17,8 +18,10 @@ from gym.services.errors import (
 )
 from gym.services.sales import Cart
 from gym.services.visits import VisitRange
+from gym.ui.dialogs.sale_detail import SaleDetailDialog
 from gym.ui.main_window import MainWindow
 from gym.ui.pages.products import ProductDialog, ProductsPage
+from gym.ui.pages.sale_history import SalesHistoryPage
 from gym.ui.pages.sales import SalesPage
 
 
@@ -393,7 +396,7 @@ class TestPantallaProductos:
         page.toggle_selected()
 
 
-class TestPantallaVentas:
+class TestPantallaPuntoDeVenta:
     def _page(self, qtbot, window):
         page = SalesPage(window)
         qtbot.addWidget(page)
@@ -433,7 +436,8 @@ class TestPantallaVentas:
 
         assert page.cart.is_empty
         assert not page.checkout_button.isEnabled()
-        assert page.history_table.model.rowCount() == 1
+        _, total = service.list_sales(VisitRange.TODAY)
+        assert total == 1
         assert products_service.get_product(product_id).stock == 8
 
     def test_cobrar_con_stock_agotado_avisa(self, qtbot, window, monkeypatch):
@@ -447,7 +451,8 @@ class TestPantallaVentas:
         page.checkout()
 
         assert not page.cart.is_empty
-        assert page.history_table.model.rowCount() == 0
+        _, total = service.list_sales(VisitRange.ALL)
+        assert total == 0
 
     def test_quitar_una_linea(self, qtbot, window):
         product_id = producto("Agua", 1500, stock=10)
@@ -460,17 +465,64 @@ class TestPantallaVentas:
         assert page.cart.is_empty
         assert page.total_label.text() == "$0.00"
 
-    def test_historial_muestra_los_totales(self, qtbot, window):
-        product_id = producto("Agua", 1500, stock=10)
-        cart = Cart()
-        cart.add(products_service.get_product(product_id), 2)
-        service.checkout(cart)
-
-        page = self._page(qtbot, window)
-        assert "$30.00" in page.history_summary.text()
-
     def test_sin_seleccion_no_falla(self, qtbot, window):
         page = self._page(qtbot, window)
         page.add_selected()
         page.remove_from_cart()
+
+
+class TestPantallaHistorial:
+    def _page(self, qtbot, window):
+        page = SalesHistoryPage(window)
+        qtbot.addWidget(page)
+        page.refresh()
+        return page
+
+    def _venta(self, product_id: int, quantity: int = 2, sold_at=None) -> None:
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), quantity)
+        service.checkout(cart, sold_at=sold_at)
+
+    def test_cuenta_ventas_por_periodo(self, qtbot, window):
+        product_id = producto("Agua", 1500, stock=100)
+        self._venta(product_id)
+        self._venta(product_id, sold_at=datetime.now() - timedelta(days=40))
+
+        page = self._page(qtbot, window)
+        assert page.stat_today.value_label.text() == "1"
+        assert page.stat_week.value_label.text() == "1"
+        assert page.stat_month.value_label.text() == "1"
+        assert page.stat_all.value_label.text() == "2"
+        assert page.table.model.rowCount() == 1
+
+    def test_filtra_por_todas(self, qtbot, window):
+        product_id = producto("Agua", 1500, stock=100)
+        self._venta(product_id)
+        self._venta(product_id, sold_at=datetime.now() - timedelta(days=40))
+
+        page = self._page(qtbot, window)
+        page._on_range(VisitRange.ALL)
+
+        assert page.table.model.rowCount() == 2
+        assert page.stat_today.value_label.text() == "1"
+
+    def test_ver_detalle_abre_el_ticket(self, qtbot, window):
+        product_id = producto("Agua", 1500, stock=10)
+        self._venta(product_id, quantity=2)
+
+        page = self._page(qtbot, window)
+        page.table.view.selectRow(0)
+        sale = page.table.selected_record()
+        assert sale is not None
+
+        dialog = SaleDetailDialog(sale.id, page)
+        qtbot.addWidget(dialog)
+        assert dialog.table.model.rowCount() == 1
+        assert (
+            dialog.table.model.data(dialog.table.model.index(0, 0), Qt.ItemDataRole.DisplayRole)
+            == "Agua"
+        )
+
+    def test_sin_seleccion_no_falla(self, qtbot, window):
+        page = self._page(qtbot, window)
         page.open_detail()

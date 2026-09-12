@@ -41,8 +41,9 @@ NAV_ITEMS = [
     NavItem("plans", "Planes", "F5", "Principal"),
     NavItem("cash", "Corte de caja", "F6", "Principal"),
     NavItem("products", "Productos", "F7", "Tienda"),
-    NavItem("sales", "Ventas", "F8", "Tienda"),
-    NavItem("settings", "Ajustes", "F9", "Sistema"),
+    NavItem("sales", "Punto de venta", "F8", "Tienda"),
+    NavItem("sale_history", "Historial de ventas", "F9", "Tienda"),
+    NavItem("settings", "Ajustes", "F10", "Sistema"),
 ]
 
 
@@ -104,7 +105,7 @@ class Sidebar(QWidget):
 
         layout.addStretch(1)
 
-        hint = QLabel("F1-F9 para navegar", self)
+        hint = QLabel("F1-F10 para navegar", self)
         hint.setObjectName("navShortcut")
         hint.setContentsMargins(6, 0, 6, 0)
         layout.addWidget(hint)

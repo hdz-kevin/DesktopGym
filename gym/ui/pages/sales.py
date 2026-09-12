@@ -3,115 +3,42 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QLabel,
-    QSpinBox,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSpinBox, QVBoxLayout
 
-from gym.data.models import Product, Sale
-from gym.domain.dates import format_datetime
+from gym.data.models import Product
 from gym.domain.money import format_money
 from gym.services import products as products_service
 from gym.services import sales as service
 from gym.services.errors import ServiceError
 from gym.services.sales import Cart, CartLine
-from gym.services.visits import VisitRange
 from gym.ui.main_window import Page
 from gym.ui.theme import TEXT_MUTED, WARNING
-from gym.ui.widgets.common import (
-    Card,
-    FilterChips,
-    PageHeader,
-    danger_button,
-    primary_button,
-    secondary_button,
-)
+from gym.ui.widgets.common import Card, PageHeader, danger_button, primary_button, secondary_button
 from gym.ui.widgets.feedback import confirm
 from gym.ui.widgets.inputs import SearchBox
 from gym.ui.widgets.table import Column, PagedTable
-
-RANGES = [
-    (r, r.label()) for r in (VisitRange.TODAY, VisitRange.WEEK, VisitRange.MONTH, VisitRange.ALL)
-]
 
 
 def _stock_text(product: Product) -> str:
     return str(product.stock)
 
 
-class SaleDetailDialog(QDialog):
-    def __init__(self, sale_id: int, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        sale = service.get_sale(sale_id)
-        self.setWindowTitle(f"Venta del {format_datetime(sale.sold_at)}")
-        self.setModal(True)
-        self.setMinimumSize(560, 380)
-
-        table = PagedTable(
-            columns=[
-                Column("Producto", lambda line: line.product_name, stretch=True),
-                Column(
-                    "Cantidad",
-                    lambda line: line.quantity,
-                    width=90,
-                    align=Qt.AlignmentFlag.AlignCenter,
-                ),
-                Column(
-                    "Precio",
-                    lambda line: format_money(line.product_price_cents),
-                    width=100,
-                    align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                ),
-                Column(
-                    "Subtotal",
-                    lambda line: format_money(line.subtotal_cents),
-                    width=110,
-                    align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                ),
-            ],
-            page_size=100,
-            empty_text="Esta venta no tiene líneas.",
-        )
-        table.set_data(list(sale.lines), len(sale.lines))
-
-        total = QLabel(f"Total: {format_money(sale.total_cents)}", self)
-        total.setObjectName("statValue")
-
-        footer = QHBoxLayout()
-        footer.addWidget(total)
-        footer.addStretch(1)
-        footer.addWidget(secondary_button("Cerrar", self.accept))
-
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-        layout.addWidget(table, 1)
-        layout.addLayout(footer)
-
-
 class SalesPage(Page):
-    title = "Ventas"
+    title = "Punto de venta"
 
     def __init__(self, window) -> None:
         super().__init__(window)
         self.window_ref = window
         self.cart = Cart()
-        self._range = VisitRange.TODAY
         self._catalog_search = ""
 
-        header = PageHeader("Ventas", "Punto de venta y historial de la tienda")
-        header.add_action(secondary_button("Ver detalle", self.open_detail))
+        header = PageHeader("Punto de venta", "Registra ventas de tus productos")
 
         layout = QVBoxLayout(self)
-        layout.setSpacing(16)
+        layout.setSpacing(20)
         layout.addWidget(header)
         layout.addLayout(self._pos_section(), 3)
-        layout.addLayout(self._history_section(), 2)
-
-    # --- Punto de venta ---------------------------------------------------
+        layout.addStretch(1)
 
     def _pos_section(self) -> QHBoxLayout:
         self.catalog_search = SearchBox("Buscar producto para agregar...")
@@ -150,11 +77,13 @@ class SalesPage(Page):
         add_row.addWidget(primary_button("Agregar al carrito", self.add_selected))
         add_row.addStretch(1)
 
-        catalog = QVBoxLayout()
-        catalog.setSpacing(8)
-        catalog.addWidget(self.catalog_search)
-        catalog.addWidget(self.catalog_table, 1)
-        catalog.addLayout(add_row)
+        catalog_card = Card(self)
+        catalog_title = QLabel("Productos", catalog_card)
+        catalog_title.setObjectName("formLabel")
+        catalog_card.body.addWidget(catalog_title)
+        catalog_card.body.addWidget(self.catalog_search)
+        catalog_card.body.addWidget(self.catalog_table, 1)
+        catalog_card.body.addLayout(add_row)
 
         self.cart_table = PagedTable[CartLine](
             columns=[
@@ -174,6 +103,7 @@ class SalesPage(Page):
             ],
             page_size=100,
             empty_text="El carrito está vacío.",
+            paginated=False,
         )
 
         self.total_label = QLabel("$0.00", self)
@@ -202,77 +132,17 @@ class SalesPage(Page):
 
         section = QHBoxLayout()
         section.setSpacing(16)
-        section.addLayout(catalog, 3)
+        section.addWidget(catalog_card, 3)
         section.addWidget(cart_card, 2)
         return section
 
-    # --- Historial --------------------------------------------------------
-
-    def _history_section(self) -> QVBoxLayout:
-        self.range_chips = FilterChips(RANGES)
-        self.range_chips.changed.connect(self._on_range)
-
-        self.history_table = PagedTable[Sale](
-            columns=[
-                Column("Fecha y hora", lambda s: format_datetime(s.sold_at), stretch=True),
-                Column(
-                    "Artículos",
-                    lambda s: sum(line.quantity for line in s.lines),
-                    width=100,
-                    align=Qt.AlignmentFlag.AlignCenter,
-                ),
-                Column(
-                    "Total",
-                    lambda s: format_money(s.total_cents),
-                    width=120,
-                    align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                ),
-            ],
-            page_size=15,
-            empty_text="No hay ventas en este periodo.",
-        )
-        self.history_table.row_activated.connect(lambda s: SaleDetailDialog(s.id, self).exec())
-        self.history_table.page_changed.connect(lambda _: self.load_history())
-
-        self.history_summary = QLabel("", self)
-        self.history_summary.setStyleSheet(f"color: {TEXT_MUTED};")
-
-        title_row = QHBoxLayout()
-        history_title = QLabel("Historial de ventas", self)
-        history_title.setObjectName("formLabel")
-        title_row.addWidget(history_title)
-        title_row.addStretch(1)
-        title_row.addWidget(self.history_summary)
-
-        section = QVBoxLayout()
-        section.setSpacing(8)
-        section.addLayout(title_row)
-        section.addWidget(self.range_chips)
-        section.addWidget(self.history_table, 1)
-        return section
-
-    # --- Acciones ---------------------------------------------------------
-
     def refresh(self) -> None:
         self.load_catalog()
-        self.load_history()
         self.render_cart()
 
     def load_catalog(self) -> None:
         rows = products_service.sellable_products(self._catalog_search)
         self.catalog_table.set_data(rows, len(rows))
-
-    def load_history(self) -> None:
-        rows, total = service.list_sales(
-            self._range, offset=self.history_table.offset, limit=self.history_table.page_size
-        )
-        self.history_table.set_data(rows, total)
-
-        totals = service.totals(self._range)
-        self.history_summary.setText(
-            f"{totals.count} venta(s) · {totals.items} artículo(s) · "
-            f"{format_money(totals.revenue_cents)}"
-        )
 
     def render_cart(self) -> None:
         lines = self.cart.ordered_lines()
@@ -284,11 +154,6 @@ class SalesPage(Page):
     def _on_catalog_search(self, text: str) -> None:
         self._catalog_search = text
         self.load_catalog()
-
-    def _on_range(self, range_: VisitRange) -> None:
-        self._range = VisitRange(range_)
-        self.history_table.reset_page()
-        self.load_history()
 
     def add_selected(self) -> None:
         product = self.catalog_table.selected_record()
@@ -346,10 +211,3 @@ class SalesPage(Page):
         self.cart.clear()
         self.window_ref.notify_success("Venta registrada.")
         self.refresh()
-
-    def open_detail(self) -> None:
-        sale = self.history_table.selected_record()
-        if sale is None:
-            self.window_ref.notify("Selecciona una venta del historial primero.")
-            return
-        SaleDetailDialog(sale.id, self).exec()

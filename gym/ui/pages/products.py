@@ -144,7 +144,7 @@ class ProductsPage(Page):
         self._search = ""
         self._stock = None
 
-        header = PageHeader("Productos", "Catálogo e inventario de la tienda")
+        header = PageHeader("Productos", "Gestiona tu inventario de productos")
 
         self.stat_total = StatCard("Productos")
         self.stat_low_stock = StatCard("Stock bajo")

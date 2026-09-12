@@ -16,9 +16,10 @@ superior de este repositorio.
 | Visitas | `F4` | Entradas sueltas de quienes no son socios |
 | Precios | `F5` | Categorías de planes y sus planes |
 | Corte de caja | `F6` | Ingresos del día, la semana o el mes por concepto |
-| Productos | `F7` | Catálogo e inventario de la tienda |
-| Ventas | `F8` | Punto de venta con carrito |
-| Ajustes | `F9` | Datos del gimnasio y respaldos |
+| Punto de venta | `F7` | Cobro de productos de la tienda |
+| Historial | `F8` | Tickets de ventas de la tienda |
+| Productos | `F9` | Catálogo e inventario de la tienda |
+| Ajustes | `F10` | Datos del gimnasio y respaldos |
 
 `Ctrl+R` recarga la pantalla actual.
 
