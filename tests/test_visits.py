@@ -99,8 +99,10 @@ class TestPantalla:
         page.refresh()
 
         assert page.table.model.rowCount() == 1
-        assert page.stat_count.value_label.text() == "1"
-        assert page.stat_revenue.value_label.text() == "$40.00"
+        assert page.stat_today.value_label.text() == "1"
+        assert page.stat_week.value_label.text() == "1"
+        assert page.stat_month.value_label.text() == "1"
+        assert page.stat_all.value_label.text() == "1"
 
     def test_cambiar_de_periodo(self, qtbot, window):
         service.create_visit(4000, datetime.now() - timedelta(days=40))
@@ -112,6 +114,8 @@ class TestPantalla:
 
         page._on_range(VisitRange.ALL)
         assert page.table.model.rowCount() == 1
+        assert page.stat_today.value_label.text() == "0"
+        assert page.stat_all.value_label.text() == "1"
 
     def test_el_dialogo_usa_el_precio_configurado(self, qtbot, window):
         dialog = VisitDialog(window, default_price_cents=5500)

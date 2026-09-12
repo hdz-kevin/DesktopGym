@@ -117,13 +117,14 @@ class VisitsPage(Page):
 
         header = PageHeader("Visitas", "Entradas sueltas de quienes no son socios")
 
-        self.stat_count = StatCard("Visitas en el periodo")
-        self.stat_revenue = StatCard("Ingresos del periodo")
-        self.stat_today = StatCard("Visitas de hoy")
+        self.stat_today = StatCard("Hoy")
+        self.stat_week = StatCard("Esta semana")
+        self.stat_month = StatCard("Este mes")
+        self.stat_all = StatCard("Todas")
 
         stats = QHBoxLayout()
         stats.setSpacing(12)
-        for card in (self.stat_count, self.stat_revenue, self.stat_today):
+        for card in (self.stat_today, self.stat_week, self.stat_month, self.stat_all):
             stats.addWidget(card)
 
         self.chips = FilterChips(FILTERS)
@@ -167,19 +168,15 @@ class VisitsPage(Page):
         self.table.set_data(rows, total)
 
     def load_stats(self) -> None:
-        period = service.totals(self._range)
-        today = service.totals(VisitRange.TODAY)
-
-        self.stat_count.set_value(str(period.count))
-        self.stat_count.caption.setText(f"Visitas · {self._range.label()}")
-        self.stat_revenue.set_value(format_money(period.revenue_cents))
-        self.stat_revenue.caption.setText(f"Ingresos · {self._range.label()}")
-        self.stat_today.set_value(str(today.count))
+        self.stat_today.set_value(str(service.totals(VisitRange.TODAY).count))
+        self.stat_week.set_value(str(service.totals(VisitRange.WEEK).count))
+        self.stat_month.set_value(str(service.totals(VisitRange.MONTH).count))
+        self.stat_all.set_value(str(service.totals(VisitRange.ALL).count))
 
     def _on_range(self, range_: VisitRange) -> None:
         self._range = VisitRange(range_)
         self.table.reset_page()
-        self.refresh()
+        self.load()
 
     def create_visit(self) -> None:
         dialog = VisitDialog(self, default_price_cents=self.window_ref.settings.visit_price_cents)
