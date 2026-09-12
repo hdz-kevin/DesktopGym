@@ -35,9 +35,9 @@ class NavItem:
 
 NAV_ITEMS = [
     NavItem("kiosk", "Bienvenida", "F1", "Principal"),
-    NavItem("members", "Socios", "F2", "Principal"),
-    NavItem("memberships", "Membresías", "F3", "Principal"),
-    NavItem("visits", "Visitas", "F4", "Principal"),
+    NavItem("memberships", "Membresías", "F2", "Principal"),
+    NavItem("visits", "Visitas", "F3", "Principal"),
+    NavItem("members", "Socios", "F4", "Principal"),
     NavItem("plans", "Planes", "F5", "Principal"),
     NavItem("cash", "Corte de caja", "F6", "Principal"),
     NavItem("products", "Productos", "F7", "Tienda"),
