@@ -57,24 +57,24 @@ class CashPage(Page):
 
         self.stat_total = StatCard("Ingresos totales")
         self.stat_total.value_label.setStyleSheet(f"color: {SUCCESS};")
-        self.stat_transactions = StatCard("Movimientos")
         self.stat_memberships = StatCard("Membresías")
-        self.stat_store = StatCard("Tienda")
+        self.stat_visits = StatCard("Visitas")
+        self.stat_store = StatCard("Ventas")
 
         stats = QHBoxLayout()
         stats.setSpacing(12)
         for card in (
             self.stat_total,
-            self.stat_transactions,
             self.stat_memberships,
+            self.stat_visits,
             self.stat_store,
         ):
             stats.addWidget(card)
 
         self.row_new = ConceptRow("Altas nuevas de membresía")
         self.row_renewals = ConceptRow("Renovaciones de membresía")
-        self.row_visits = ConceptRow("Visitas sueltas")
-        self.row_sales = ConceptRow("Ventas de tienda")
+        self.row_visits = ConceptRow("Visitas")
+        self.row_sales = ConceptRow("Ventas de productos")
 
         self.total_row = ConceptRow("Total")
         self.total_row.name_label.setStyleSheet("font-weight: 700;")
@@ -137,8 +137,8 @@ class CashPage(Page):
     def _render(self, report: CashReport) -> None:
         self.stat_total.set_value(format_money(report.total_revenue_cents))
         self.stat_total.caption.setText(f"Ingresos · {report.range_.label()}")
-        self.stat_transactions.set_value(str(report.transaction_count))
         self.stat_memberships.set_value(format_money(report.memberships_revenue_cents))
+        self.stat_visits.set_value(format_money(report.visits.revenue_cents))
         self.stat_store.set_value(format_money(report.sales.revenue_cents))
 
         self.row_new.set_values(report.new_memberships, "alta(s)")

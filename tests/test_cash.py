@@ -164,6 +164,7 @@ class TestPantalla:
 
         assert page.stat_total.value_label.text() == "$440.00"
         assert page.stat_memberships.value_label.text() == "$400.00"
+        assert page.stat_visits.value_label.text() == "$40.00"
 
     def test_distingue_altas_de_renovaciones(self, qtbot, window, app_catalog):
         membership_id = memberships_service.create_membership(alta(), app_catalog["monthly_id"])
