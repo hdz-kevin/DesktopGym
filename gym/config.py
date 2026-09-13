@@ -64,8 +64,8 @@ def resource_path(relative: str) -> Path:
 class Settings:
     """Ajustes editables por el usuario. Reemplaza a config/gym.php."""
 
-    gym_name: str = "Mi Gimnasio"
-    gym_address: str = ""
+    gym_name: str = "TecnoGym"
+    gym_address: str = "Av. Miguel Hidalgo #123, Teziutlán"
     visit_price_cents: int = 4000
     backup_on_exit: bool = True
     backups_to_keep: int = 30

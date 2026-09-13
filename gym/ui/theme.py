@@ -9,7 +9,7 @@ BG = "#f4f5f7"
 SURFACE = "#ffffff"
 BORDER = "#e2e5ea"
 TEXT = "#1c2430"
-TEXT_MUTED = "#6b7684"
+TEXT_MUTED = "#586472"
 SIDEBAR_BG = "#151b26"
 SIDEBAR_TEXT = "#9aa5b4"
 SIDEBAR_ACTIVE = "#232c3d"
@@ -52,8 +52,25 @@ QPushButton#navButton:checked {{
 #pageSubtitle {{ color: {TEXT_MUTED}; font-size: 13px; }}
 
 #card {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 12px; }}
+#card[kind="success"] {{
+    background: {SUCCESS_BG}; border: 1px solid {SUCCESS};
+}}
+#card[kind="danger"] {{
+    background: {DANGER_BG}; border: 1px solid {DANGER};
+}}
 #statValue {{ font-size: 26px; font-weight: 700; }}
 #statLabel {{ color: {TEXT_MUTED}; font-size: 12px; }}
+#kioskClock {{ font-size: 20px; font-weight: 700; }}
+#kioskDate {{ color: {TEXT_MUTED}; font-size: 16px; }}
+QLineEdit#kioskCodeInput {{
+    background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 32px;
+    font-size: 24px; font-weight: 700; color: {TEXT}; padding: 0 24px;
+    letter-spacing: 14px;
+}}
+QLineEdit#kioskCodeInput:focus {{ border: 1px solid {PRIMARY}; }}
+#kioskPhotoSlot {{
+    background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 12px;
+}}
 
 QPushButton {{
     background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 8px;

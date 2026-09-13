@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from gym.data.models import Member, Membership
-from gym.domain.dates import format_date, humanize_delta
+from gym.domain.dates import humanize_delta
 from gym.domain.enums import MembershipStatus
 from gym.services import members as members_service
 
@@ -48,13 +48,15 @@ def verify_code(code: str, now: datetime | None = None) -> CheckInResult:
             False,
             "Este socio no tiene ninguna membresía registrada.",
             member=member,
-            detail="Pásalo a recepción para darlo de alta.",
+            detail="No cuenta con ninguna membresía",
         )
 
     if membership.status is MembershipStatus.EXPIRED:
         payment = membership.recent_payment
         detail = (
-            f"Venció el {format_date(payment.end_date)}." if payment else "Sin pagos registrados."
+            f"Venció hace {humanize_delta(payment.end_date, now)}."
+            if payment
+            else "Sin pagos registrados."
         )
         return CheckInResult(
             False,

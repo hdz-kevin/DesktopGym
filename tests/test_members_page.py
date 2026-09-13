@@ -15,8 +15,9 @@ from gym.services import members as service
 from gym.ui.dialogs.member_form import MemberFormDialog
 from gym.ui.dialogs.member_profile import MemberProfileDialog
 from gym.ui.main_window import MainWindow
-from gym.ui.pages.kiosk import KioskPage
+from gym.ui.pages.kiosk import PHOTO_SIZE, RESULT_HOLD_MS, KioskPage, _clock_parts
 from gym.ui.pages.members import MembersPage
+from gym.ui.theme import DANGER, SUCCESS, TEXT
 
 
 @pytest.fixture
@@ -190,6 +191,15 @@ class TestKioskPage:
         page.refresh()
         return page
 
+    def _assert_idle(self, page: KioskPage) -> None:
+        assert not page.photo_slot.isVisibleTo(page)
+        assert not page.result_name.isVisibleTo(page)
+        assert not page.result_code_row.isVisibleTo(page)
+        assert not page.result_detail.isVisibleTo(page)
+        assert page.result_block.isVisibleTo(page)
+        assert page.result_block.minimumHeight() == PHOTO_SIZE
+        assert page.result_block.maximumHeight() == PHOTO_SIZE
+
     def test_codigo_valido_da_bienvenida(self, qtbot, window, app_catalog):
         member_id = alta("Ana Lopez")
         dar_periodo(member_id, app_catalog, dias=10)
@@ -198,9 +208,10 @@ class TestKioskPage:
         page = self._page(qtbot, window)
         page.code_input.setText(codigo)
 
-        assert page.result_card.isVisibleTo(page)
-        assert page.result_title.text() == "¡Bienvenido!"
         assert page.result_name.text() == "Ana Lopez"
+        assert page.result_name.isVisibleTo(page)
+        assert page.photo_slot.isVisibleTo(page)
+        assert SUCCESS in page.result_name.styleSheet()
 
     def test_membresia_vencida_niega_el_paso(self, qtbot, window, app_catalog):
         member_id = alta("Vencido Torres")
@@ -210,32 +221,163 @@ class TestKioskPage:
         page = self._page(qtbot, window)
         page.code_input.setText(codigo)
 
-        assert page.result_title.text() == "Membresía vencida."
-        assert "Venció el" in page.result_detail.text()
+        assert page.result_name.text() == "Vencido Torres"
+        assert page.result_name.isVisibleTo(page)
+        assert page.result_code_label.text() == "Código:"
+        assert page.result_code.text() == codigo
+        assert page.result_code_row.isVisibleTo(page)
+        assert page.result_detail.isVisibleTo(page)
+        assert "Venció hace" in page.result_detail.text()
+        assert page.photo_slot.isVisibleTo(page)
+        assert DANGER in page.result_name.styleSheet()
+        assert DANGER not in page.result_detail.styleSheet()
+        assert TEXT in page.result_code.styleSheet()
+        assert TEXT in page.result_detail.styleSheet()
 
     def test_codigo_inexistente(self, qtbot, window):
         page = self._page(qtbot, window)
         page.code_input.setText("99999")
 
-        assert "No encontramos" in page.result_title.text()
+        assert "No encontramos" in page.result_name.text()
+        assert page.result_name.isVisibleTo(page)
+        assert DANGER in page.result_name.styleSheet()
+        assert page.photo_slot.isVisibleTo(page)
+        assert not page.result_code_row.isVisibleTo(page)
+        assert not page.result_detail.isVisibleTo(page)
+
+    def test_socio_sin_membresia(self, qtbot, window):
+        member_id = alta("Nuevo Sanchez")
+        codigo = service.get_member(member_id).code
+
+        page = self._page(qtbot, window)
+        page.code_input.setText(codigo)
+
+        assert page.result_name.text() == "Nuevo Sanchez"
+        assert page.result_name.isVisibleTo(page)
+        assert page.result_code.text() == codigo
+        assert page.result_code_row.isVisibleTo(page)
+        assert page.result_detail.isVisibleTo(page)
+        assert "No cuenta" in page.result_detail.text()
+        assert page.photo_slot.isVisibleTo(page)
+        assert DANGER in page.result_name.styleSheet()
+        assert DANGER not in page.result_detail.styleSheet()
 
     def test_consulta_sola_al_completar_cinco_digitos(self, qtbot, window):
         page = self._page(qtbot, window)
         qtbot.keyClicks(page.code_input, "9999")
-        assert not page.result_card.isVisibleTo(page)
+        assert not page.result_name.isVisibleTo(page)
 
         qtbot.keyClicks(page.code_input, "9")
-        assert page.result_card.isVisibleTo(page)
+        assert page.result_name.isVisibleTo(page)
 
     def test_limpia_el_campo_tras_consultar(self, qtbot, window):
         page = self._page(qtbot, window)
         page.code_input.setText("99999")
         assert page.code_input.text() == ""
 
-    def test_teclear_de_nuevo_oculta_el_resultado(self, qtbot, window):
+    def test_teclear_de_nuevo_limpia_el_resultado(self, qtbot, window):
         page = self._page(qtbot, window)
         page.code_input.setText("99999")
-        assert page.result_card.isVisibleTo(page)
+        assert page.result_name.isVisibleTo(page)
 
         qtbot.keyClick(page.code_input, Qt.Key.Key_1)
-        assert not page.result_card.isVisibleTo(page)
+        assert page.result_name.text() == ""
+        self._assert_idle(page)
+
+    def test_el_cuadro_de_resultado_esta_vacio_al_inicio(self, qtbot, window):
+        page = self._page(qtbot, window)
+        self._assert_idle(page)
+
+    def test_saludo_usa_el_nombre_del_gimnasio(self, qtbot, window):
+        page = self._page(qtbot, window)
+        assert page.heading.text() == "Gimnasio de Prueba"
+        assert page.heading.parentWidget() is not page.input_card
+        assert page.instruction.parentWidget() is not page.input_card
+        assert page.instruction.text() == "Ingresa tu código de 5 dígitos"
+
+    def test_muestra_la_direccion_si_esta_configurada(self, qtbot, window):
+        window.settings.gym_address = "Calle 8 #120"
+        page = self._page(qtbot, window)
+
+        assert page.address.isVisibleTo(page)
+        assert page.address.text() == "Calle 8 #120"
+
+    def test_oculta_la_direccion_si_esta_vacia(self, qtbot, window):
+        window.settings.gym_address = ""
+        page = self._page(qtbot, window)
+        assert not page.address.isVisibleTo(page)
+
+    def test_muestra_reloj_y_fecha(self, qtbot, window):
+        page = self._page(qtbot, window)
+        assert page.clock_time.text()
+        assert page.clock_date.text()
+
+    def test_casillas_reflejan_los_digitos(self, qtbot, window):
+        page = self._page(qtbot, window)
+        qtbot.keyClicks(page.code_input, "12")
+        assert page.code_input.text() == "12"
+
+    def test_resultado_vigente_muestra_codigo_y_no_el_plan(self, qtbot, window, app_catalog):
+        member_id = alta("Ana Lopez")
+        dar_periodo(member_id, app_catalog, dias=10)
+        codigo = service.get_member(member_id).code
+
+        page = self._page(qtbot, window)
+        page.code_input.setText(codigo)
+
+        assert page.result_name.text() == "Ana Lopez"
+        assert page.result_code_label.text() == "Código:"
+        assert page.result_code.text() == codigo
+        assert page.result_code_row.isVisibleTo(page)
+        assert "General" not in page.result_code.text()
+        assert "Mensual" not in page.result_code.text()
+        assert page.result_detail.isVisibleTo(page)
+        assert "Vence en" in page.result_detail.text()
+        assert page.photo_slot.isVisibleTo(page)
+        assert SUCCESS in page.result_name.styleSheet()
+        assert SUCCESS not in page.result_detail.styleSheet()
+        assert TEXT in page.result_code.styleSheet()
+        assert TEXT in page.result_detail.styleSheet()
+
+    def test_enter_con_codigo_corto_consulta(self, qtbot, window):
+        page = self._page(qtbot, window)
+        qtbot.keyClicks(page.code_input, "1234")
+        qtbot.keyClick(page.code_input, Qt.Key.Key_Return)
+
+        assert "5 dígitos" in page.result_name.text()
+        assert page.result_name.isVisibleTo(page)
+        assert DANGER in page.result_name.styleSheet()
+
+    def test_las_letras_no_entran_al_codigo(self, qtbot, window):
+        page = self._page(qtbot, window)
+        qtbot.keyClicks(page.code_input, "12ab3")
+        assert page.code_input.text() == "123"
+
+    def test_refresh_vuelve_al_reposo(self, qtbot, window):
+        page = self._page(qtbot, window)
+        page.code_input.setText("99999")
+        assert page.result_name.isVisibleTo(page)
+
+        page.refresh()
+        self._assert_idle(page)
+
+    def test_el_timer_limpia_el_resultado(self, qtbot, window):
+        page = self._page(qtbot, window)
+        page.code_input.setText("99999")
+
+        assert page._reset_timer.isActive()
+        assert page._reset_timer.interval() == RESULT_HOLD_MS
+
+        page._reset_timer.timeout.emit()
+        self._assert_idle(page)
+
+
+class TestKioskClock:
+    def test_medianoche(self):
+        time_text, date_text = _clock_parts(datetime(2026, 9, 12, 0, 5))
+        assert time_text == "12:05 a.m."
+        assert date_text == "Sábado 12 Sep 2026"
+
+    def test_mediodia(self):
+        time_text, _ = _clock_parts(datetime(2026, 9, 12, 12, 0))
+        assert time_text == "12:00 p.m."

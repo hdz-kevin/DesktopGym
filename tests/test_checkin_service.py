@@ -6,6 +6,7 @@ import pytest
 
 from gym.data.database import session_scope
 from gym.data.models import Membership, Payment
+from gym.domain.dates import humanize_delta
 from gym.domain.enums import MemberGender
 from gym.services import members as members_service
 from gym.services.checkin import verify_code
@@ -88,6 +89,31 @@ class TestAccesoConcedido:
         dar_periodo(member_id, app_catalog, dias_restantes=5)
         assert verify_code(f" {codigo} ").granted
 
+    def test_el_detalle_sigue_la_fecha_de_referencia(self, app_db, app_catalog):
+        member_id, codigo = alta()
+        referencia = datetime.now()
+        vencimiento = referencia + timedelta(days=12)
+        with session_scope() as session:
+            membership = Membership(
+                member_id=member_id, plan_category_id=app_catalog["category_id"]
+            )
+            session.add(membership)
+            session.flush()
+            session.add(
+                Payment(
+                    membership_id=membership.id,
+                    plan_id=app_catalog["monthly_id"],
+                    start_date=referencia - timedelta(days=30),
+                    end_date=vencimiento,
+                    price_paid_cents=40000,
+                )
+            )
+
+        resultado = verify_code(codigo, now=referencia)
+
+        assert resultado.granted
+        assert resultado.detail == f"Vence en {humanize_delta(vencimiento, referencia)}."
+
 
 class TestAccesoDenegado:
     def test_socio_sin_membresia(self, app_db):
@@ -96,7 +122,20 @@ class TestAccesoDenegado:
 
         assert not resultado.granted
         assert "no tiene ninguna membresía" in resultado.message
+        assert resultado.detail == "No cuenta con ninguna membresía"
         assert resultado.member is not None
+
+    def test_membresia_sin_pagos(self, app_db, app_catalog):
+        member_id, codigo = alta()
+        with session_scope() as session:
+            session.add(
+                Membership(member_id=member_id, plan_category_id=app_catalog["category_id"])
+            )
+
+        resultado = verify_code(codigo)
+
+        assert not resultado.granted
+        assert resultado.detail == "Sin pagos registrados."
 
     def test_membresia_vencida_indica_la_fecha(self, app_db, app_catalog):
         member_id, codigo = alta()
@@ -106,7 +145,7 @@ class TestAccesoDenegado:
 
         assert not resultado.granted
         assert resultado.message == "Membresía vencida."
-        assert "Venció el" in resultado.detail
+        assert "Venció hace" in resultado.detail
 
     def test_renovar_reactiva_el_acceso(self, app_db, app_catalog):
         member_id, codigo = alta()
