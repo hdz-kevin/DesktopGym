@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from gym.data.database import session_scope
-from gym.data.models import Membership, Payment
+from gym.data.models import Member, Membership, Payment
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.services import members as service
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
@@ -182,10 +182,22 @@ class TestListadoYFiltros:
         rows, total = service.list_members()
         assert total == 3 and len(rows) == 3
 
-    def test_ordena_por_nombre(self, app_db, app_catalog):
-        self._poblar(app_catalog)
+    def test_ordena_del_mas_reciente_al_mas_viejo(self, app_db):
+        viejo = alta("Primero")
+        nuevo = alta("Segundo")
         rows, _ = service.list_members()
-        assert [r.name for r in rows] == sorted(r.name for r in rows)
+        assert [r.id for r in rows] == [nuevo, viejo]
+
+    def test_desempata_por_id_si_la_fecha_coincide(self, app_db):
+        primero = alta("Primero")
+        segundo = alta("Segundo")
+        mismo_instante = datetime(2026, 1, 15, 10, 0, 0)
+        with session_scope() as session:
+            for member_id in (primero, segundo):
+                session.get(Member, member_id).created_at = mismo_instante
+
+        rows, _ = service.list_members()
+        assert [r.id for r in rows] == [segundo, primero]
 
     @pytest.mark.parametrize(
         ("estado", "esperado"),

@@ -213,7 +213,7 @@ def list_members(
         rows = session.scalars(
             _apply_filters(base, search, status)
             .options(*_eager())
-            .order_by(Member.name)
+            .order_by(Member.created_at.desc(), Member.id.desc())
             .offset(offset)
             .limit(limit)
         ).all()
