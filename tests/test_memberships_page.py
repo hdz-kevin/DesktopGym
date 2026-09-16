@@ -203,7 +203,7 @@ class TestHistoryDialog:
             for label in dialog.findChildren(QLabel)
             if label.objectName() == "pageTitle"
         ]
-        assert titulos == ["Membresía de Ana Lopez"]
+        assert titulos == ["Historial de Ana Lopez"]
         planes = [
             dialog.table.model.data(dialog.table.model.index(i, 1), Qt.ItemDataRole.DisplayRole)
             for i in range(2)
@@ -219,6 +219,21 @@ class TestHistoryDialog:
         )
         pago = dialog.table.model.record_at(0)
         assert vigencia == format_range(pago.start_date, pago.end_date)
+
+    def test_pagina_a_partir_de_30_pagos(self, qtbot, window, app_catalog):
+        membership_id = service.create_membership(alta(), app_catalog["monthly_id"])
+        for _ in range(30):
+            service.renew_membership(membership_id, app_catalog["monthly_id"])
+
+        dialog = MembershipHistoryDialog(membership_id, window)
+        qtbot.addWidget(dialog)
+
+        assert dialog.payments_value.text() == "31"
+        assert dialog.table.model.rowCount() == 30
+        assert dialog.table.pager.isVisibleTo(dialog)
+
+        dialog.table.go_to_page(2)
+        assert dialog.table.model.rowCount() == 1
 
 
 class TestPlansPage:

@@ -210,9 +210,6 @@ class RenewMembershipDialog(QDialog):
         start_layout = QVBoxLayout(start_box)
         start_layout.setContentsMargins(0, 0, 0, 0)
         start_layout.setSpacing(6)
-        start_layout.addWidget(
-            QLabel(f"Se sugiere iniciar el {format_date(suggested)}.", start_box)
-        )
         start_layout.addWidget(self.custom_start)
         start_layout.addWidget(self.start_input)
         self.start_field = Field("Inicio", start_box, self)

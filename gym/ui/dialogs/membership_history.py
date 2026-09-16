@@ -24,7 +24,7 @@ class MembershipHistoryDialog(QDialog):
         membership = service.get_membership(membership_id)
         self.setWindowTitle(f"Historial · {membership.member.name}")
         self.setModal(True)
-        self.setMinimumSize(800, 500)
+        self.setMinimumSize(840, 520)
 
         self.payments_value = QLabel("", self)
         self.total_value = QLabel("", self)
@@ -52,9 +52,10 @@ class MembershipHistoryDialog(QDialog):
                     color=lambda p: SUCCESS if p.is_current else None,
                 ),
             ],
-            page_size=50,
+            page_size=30,
             empty_text="Esta membresía no tiene pagos.",
         )
+        self.table.page_changed.connect(lambda _: self.load())
 
         buttons = QHBoxLayout()
         buttons.addStretch(1)
@@ -82,7 +83,7 @@ class MembershipHistoryDialog(QDialog):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(10)
 
-        title = QLabel(f"Membresía de {membership.member.name}", box)
+        title = QLabel(f"Historial de {membership.member.name}", box)
         title.setObjectName("pageTitle")
         row.addWidget(title)
         row.addWidget(status_badge(membership.status))
@@ -97,6 +98,8 @@ class MembershipHistoryDialog(QDialog):
     def load(self) -> None:
         membership = service.get_membership(self.membership_id)
         payments = sorted(membership.payments, key=lambda p: p.start_date, reverse=True)
-        self.table.set_data(payments, len(payments))
-        self.payments_value.setText(str(len(payments)))
+        total = len(payments)
+        page = payments[self.table.offset : self.table.offset + self.table.page_size]
+        self.table.set_data(page, total)
+        self.payments_value.setText(str(total))
         self.total_value.setText(format_money(membership.total_paid_cents))
