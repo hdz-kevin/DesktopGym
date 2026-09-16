@@ -176,13 +176,13 @@ QScrollBar::handle:horizontal {{ background: #cbd2dc; border-radius: 5px; min-wi
 }}
 
 #toastSuccess {{
-    background: #16321f; color: #ffffff; border-radius: 10px; padding: 12px 16px; font-weight: 500;
+    background: #16321f; color: #ffffff; border-radius: 10px; padding: 14px 18px; font-weight: 500;
 }}
 #toastError {{
-    background: #3b1414; color: #ffffff; border-radius: 10px; padding: 12px 16px; font-weight: 500;
+    background: #3b1414; color: #ffffff; border-radius: 10px; padding: 14px 18px; font-weight: 500;
 }}
 #toastInfo {{
-    background: {SIDEBAR_BG}; color: #ffffff; border-radius: 10px; padding: 12px 16px;
+    background: {SIDEBAR_BG}; color: #ffffff; border-radius: 10px; padding: 14px 18px;
 }}
 
 #muted {{ color: {TEXT_MUTED}; }}

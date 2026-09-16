@@ -175,10 +175,7 @@ def delete_member(member_id: int) -> None:
             select(func.count()).select_from(Membership).where(Membership.member_id == member_id)
         )
         if has_history:
-            raise ServiceError(
-                "No se puede eliminar un socio con membresías registradas, "
-                "porque su historial forma parte de los cortes de caja."
-            )
+            raise ServiceError("No se puede eliminar un socio con membresía asignada.")
 
         _delete_photo(member.photo)
         session.delete(member)

@@ -27,7 +27,8 @@ class Toast(QLabel):
         super().__init__(message, parent)
         self.setObjectName(kind.value)
         self.setWordWrap(True)
-        self.setMaximumWidth(420)
+        self.setMinimumWidth(280)
+        self.setMaximumWidth(520)
         self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.adjustSize()
 
@@ -67,7 +68,7 @@ class ToastManager:
         self.host = host
         self._toasts: list[Toast] = []
 
-    def show(self, message: str, kind: ToastKind = ToastKind.INFO, duration_ms: int = 3200) -> None:
+    def show(self, message: str, kind: ToastKind = ToastKind.INFO, duration_ms: int = 5200) -> None:
         toast = Toast(self.host, message, kind, duration_ms)
         toast.destroyed.connect(lambda: self._forget(toast))
         self._toasts.append(toast)

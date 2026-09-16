@@ -279,7 +279,7 @@ def delete_plan_category(category_id: int) -> None:
             .where(Membership.plan_category_id == category_id)
         )
         if in_use:
-            raise ServiceError("No se puede eliminar una categoría con membresías registradas.")
+            raise ServiceError("No se puede eliminar una categoría con membresías asignadas.")
         session.delete(category)
 
 
