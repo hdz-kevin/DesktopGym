@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
 )
@@ -43,39 +44,52 @@ class SettingsPage(Page):
         self.window_ref = window
         self.settings = window.settings
 
-        header = PageHeader("Ajustes", "Datos del gimnasio y respaldos de la información")
+        header = PageHeader("Ajustes", "Preferencias del gimnasio y respaldos de la información")
 
         self.name_input = QLineEdit(self)
-        self.name_field = Field("Nombre del gimnasio", self.name_input, self)
+        self.name_field = Field("Nombre", self.name_input, self)
 
         self.address_input = QLineEdit(self)
         self.address_field = Field("Dirección", self.address_input, self)
 
         self.visit_price_input = MoneyInput(self)
         self.visit_price_field = Field(
-            "Precio sugerido de visita suelta", self.visit_price_input, self
+            "Precio sugerido para visitas", self.visit_price_input, self
         )
 
-        gym_card = Card(self)
-        gym_title = QLabel("Datos del gimnasio", gym_card)
-        gym_title.setObjectName("formLabel")
-        gym_card.body.addWidget(gym_title)
-        gym_card.body.addWidget(self.name_field)
-        gym_card.body.addWidget(self.address_field)
-        gym_card.body.addWidget(self.visit_price_field)
-
-        save_row = QHBoxLayout()
-        save_row.addStretch(1)
-        save_row.addWidget(primary_button("Guardar ajustes", self.save_settings))
-        gym_card.body.addLayout(save_row)
-
-        self.backup_on_exit = QCheckBox("Respaldar automáticamente al cerrar", self)
         self.keep_input = QSpinBox(self)
         self.keep_input.setRange(1, 365)
         self.keep_field = Field("Respaldos a conservar", self.keep_input, self)
 
+        for field in (
+            self.name_field,
+            self.address_field,
+            self.visit_price_field,
+            self.keep_field,
+        ):
+            field.layout().setSpacing(12)
+
+        self.backup_on_exit = QCheckBox("Respaldar automáticamente al cerrar", self)
+
+        self.gym_card = Card(self)
+        self.gym_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        self.gym_card.body.setSpacing(32)
+        gym_title = QLabel("Preferencias", self.gym_card)
+        gym_title.setObjectName("formLabel")
+        self.gym_card.body.addWidget(gym_title)
+        self.gym_card.body.addWidget(self.name_field)
+        self.gym_card.body.addWidget(self.address_field)
+        self.gym_card.body.addWidget(self.visit_price_field)
+        self.gym_card.body.addWidget(self.keep_field)
+        self.gym_card.body.addWidget(self.backup_on_exit)
+
+        save_row = QHBoxLayout()
+        save_row.addStretch(1)
+        save_row.addWidget(primary_button("Guardar ajustes", self.save_settings))
+        self.gym_card.body.addLayout(save_row)
+
         self.location_label = QLabel("", self)
-        self.location_label.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 12px;")
+        self.location_label.setStyleSheet(f"color: {TEXT_MUTED}; font-size: 15px;")
         self.location_label.setWordWrap(True)
 
         self.backups_table = PagedTable[BackupFile](
@@ -88,8 +102,8 @@ class SettingsPage(Page):
                     align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 ),
             ],
-            page_size=10,
             empty_text="Todavía no hay respaldos.",
+            paginated=False,
         )
 
         backup_buttons = QHBoxLayout()
@@ -102,20 +116,19 @@ class SettingsPage(Page):
             danger_button("Restaurar desde archivo...", self.restore_from_file)
         )
 
-        backup_card = Card(self)
-        backup_title = QLabel("Respaldos", backup_card)
+        self.backup_card = Card(self)
+        self.backup_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        backup_title = QLabel("Respaldos", self.backup_card)
         backup_title.setObjectName("formLabel")
-        backup_card.body.addWidget(backup_title)
-        backup_card.body.addWidget(self.backup_on_exit)
-        backup_card.body.addWidget(self.keep_field)
-        backup_card.body.addWidget(self.backups_table, 1)
-        backup_card.body.addLayout(backup_buttons)
-        backup_card.body.addWidget(self.location_label)
+        self.backup_card.body.addWidget(backup_title)
+        self.backup_card.body.addWidget(self.location_label)
+        self.backup_card.body.addWidget(self.backups_table, 1)
+        self.backup_card.body.addLayout(backup_buttons)
 
         columns = QHBoxLayout()
         columns.setSpacing(16)
-        columns.addWidget(gym_card, 2)
-        columns.addWidget(backup_card, 3)
+        columns.addWidget(self.gym_card, 2, Qt.AlignmentFlag.AlignTop)
+        columns.addWidget(self.backup_card, 3)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(16)
