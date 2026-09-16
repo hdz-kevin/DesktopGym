@@ -191,10 +191,7 @@ class PlansPage(Page):
         super().__init__(window)
         self.window_ref = window
 
-        header = PageHeader(
-            "Planes",
-            "Planes agrupados por categorías.",
-        )
+        header = PageHeader("Planes", "Organiza los planes de membresía por categorías")
 
         # Categories table
         self.categories_table = PagedTable[PlanCategory](

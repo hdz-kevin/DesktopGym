@@ -52,7 +52,7 @@ class MembersPage(Page):
         self._search = ""
         self._status: MemberStatus | None = None
 
-        header = PageHeader("Socios", "Alta, consulta y edición de socios")
+        header = PageHeader("Socios", "Registro y gestión de los socios del gimnasio")
 
         self.stat_total = StatCard("Total")
         self.stat_active = StatCard("Activos")

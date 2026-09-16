@@ -32,7 +32,7 @@ class SalesPage(Page):
         self.cart = Cart()
         self._catalog_search = ""
 
-        header = PageHeader("Punto de venta", "Registra ventas de tus productos")
+        header = PageHeader("Punto de venta", "Registro y cobro de ventas de productos")
 
         layout = QVBoxLayout(self)
         layout.setSpacing(20)

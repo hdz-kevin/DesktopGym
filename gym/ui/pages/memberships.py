@@ -55,7 +55,7 @@ class MembershipsPage(Page):
         self._search = ""
         self._status: MembershipStatus | None = None
 
-        header = PageHeader("Membresías", "Altas, renovaciones e historial de pagos")
+        header = PageHeader("Membresías", "Altas, renovaciones e historial de pagos de las membresías")
 
         self.stat_total = StatCard("Total")
         self.stat_active = StatCard("Activas")

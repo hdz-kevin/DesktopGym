@@ -116,7 +116,7 @@ class VisitsPage(Page):
         self.window_ref = window
         self._range = VisitRange.TODAY
 
-        header = PageHeader("Visitas", "Entradas sueltas de quienes no son socios")
+        header = PageHeader("Visitas", "Gestión de las visitas casuales de los socios")
 
         self.stat_today = StatCard("Hoy")
         self.stat_week = StatCard("Esta semana")
