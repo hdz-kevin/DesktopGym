@@ -17,6 +17,13 @@ DIST = ROOT / "dist"
 BUILD = ROOT / "build"
 
 
+def project_version() -> str:
+    """La version vive en gym/__init__.py; pyproject e Inno Setup la leen de ahi."""
+    from gym import __version__
+
+    return __version__
+
+
 def run(command: list[str]) -> None:
     print(f"$ {' '.join(command)}")
     result = subprocess.run(command, cwd=ROOT)
@@ -29,6 +36,7 @@ def build_executable() -> Path:
         if folder.exists():
             shutil.rmtree(folder)
 
+    print(f"Version {project_version()}")
     run([sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC)])
 
     name = "TecnoGym.exe" if sys.platform == "win32" else "TecnoGym"
@@ -49,8 +57,9 @@ def build_installer() -> None:
     if iscc is None:
         raise SystemExit("No se encontró 'iscc'. Instala Inno Setup 6 y agrégalo al PATH.")
 
-    run([iscc, str(ROOT / "packaging" / "installer.iss")])
-    print(f"Instalador listo en {DIST / 'installer'}")
+    version = project_version()
+    run([iscc, f"/DAppVersion={version}", str(ROOT / "packaging" / "installer.iss")])
+    print(f"Instalador listo en {DIST / 'installer'} (v{version})")
 
 
 def main() -> None:

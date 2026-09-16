@@ -72,6 +72,25 @@ def test_el_instalador_ofrece_acceso_directo():
     assert "{autodesktop}" in texto
 
 
+def test_la_version_vive_en_un_solo_lugar():
+    """pyproject e Inno Setup no deben volver a tener un numero propio."""
+    import tomllib
+
+    from gym import __version__
+
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["project"]["dynamic"] == ["version"]
+    assert pyproject["tool"]["hatch"]["version"]["path"] == "gym/__init__.py"
+    assert __version__, "Falta gym.__version__"
+
+    build = (ROOT / "packaging" / "build.py").read_text(encoding="utf-8")
+    assert "/DAppVersion=" in build
+
+    iss = INSTALLER.read_text(encoding="utf-8")
+    assert "#ifndef AppVersion" in iss
+    assert "#define AppVersion" not in iss
+
+
 def test_la_ruta_de_recursos_funciona_empaquetada(monkeypatch, tmp_path):
     """`resource_path` debe apuntar dentro del paquete cuando hay _MEIPASS."""
     import sys

@@ -1,8 +1,11 @@
 ; Instalador de TecnoGym para Windows (Inno Setup 6).
-; Compilar con: iscc packaging\installer.iss
+; Compilar con packaging\build.py --installer, que pasa /DAppVersion desde
+; gym.__version__. A mano: iscc /DAppVersion=X.Y.Z packaging\installer.iss
 
 #define AppName "TecnoGym"
-#define AppVersion "1.0.0"
+#ifndef AppVersion
+  #error Compila con packaging/build.py --installer para tomar la version del proyecto.
+#endif
 #define AppPublisher "TecnoGym"
 #define AppExe "TecnoGym.exe"
 
