@@ -13,7 +13,6 @@ from datetime import datetime
 from PySide6.QtCore import QEvent, QRegularExpression, Qt, QTimer
 from PySide6.QtGui import QRegularExpressionValidator
 from PySide6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -25,6 +24,7 @@ from gym.config import Settings
 from gym.domain.dates import format_date
 from gym.services.checkin import CODE_LENGTH, CheckInResult, verify_code
 from gym.ui.main_window import Page
+from gym.ui.pages.helpers import avatar_pixmap
 from gym.ui.theme import DANGER, SUCCESS, TEXT, TEXT_MUTED
 
 logger = logging.getLogger(__name__)
@@ -136,10 +136,11 @@ class KioskPage(Page):
         pill_row.addWidget(self.code_input)
         pill_row.addStretch(1)
 
-        self.photo_slot = QFrame(self)
+        self.photo_slot = QLabel(self)
         self.photo_slot.setObjectName("kioskPhotoSlot")
         self.photo_slot.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.photo_slot.setFixedSize(PHOTO_SIZE, PHOTO_SIZE)
+        self.photo_slot.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.result_name = QLabel("", self)
         self.result_name.setWordWrap(True)
@@ -259,6 +260,7 @@ class KioskPage(Page):
         self.result_name.hide()
         self.result_code_row.hide()
         self.result_detail.hide()
+        self.photo_slot.clear()
         self.photo_slot.hide()
         self._apply_accent(TEXT)
 
@@ -284,11 +286,15 @@ class KioskPage(Page):
         self.photo_slot.show()
 
         if result.member is None:
+            self.photo_slot.clear()
             self.result_name.setText(result.message)
             self.result_name.show()
             self.result_code_row.hide()
             self.result_detail.hide()
         else:
+            self.photo_slot.setPixmap(
+                avatar_pixmap(result.member.photo, result.member.initials, size=PHOTO_SIZE)
+            )
             self.result_name.setText(result.member_name)
             self.result_name.setVisible(bool(result.member_name))
             self.result_code.setText(result.member.code)

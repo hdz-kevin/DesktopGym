@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import shutil
 import uuid
 from dataclasses import dataclass
 from datetime import date
@@ -22,7 +21,7 @@ from gym.services.errors import NotFoundError, ServiceError, ValidationError
 logger = logging.getLogger(__name__)
 
 MAX_PHOTO_BYTES = 5 * 1024 * 1024
-ALLOWED_PHOTO_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+JPEG_MAGIC = b"\xff\xd8"
 
 
 @dataclass
@@ -30,7 +29,7 @@ class MemberForm:
     name: str
     gender: MemberGender
     birth_date: date | None = None
-    photo_source: Path | None = None
+    photo_jpeg: bytes | None = None
     remove_photo: bool = False
 
 
@@ -74,26 +73,22 @@ def validate(form: MemberForm) -> dict[str, str]:
         elif form.birth_date.year < 1900:
             errors["birth_date"] = "Revisa la fecha de nacimiento."
 
-    if form.photo_source is not None:
-        source = form.photo_source
-        if not source.exists():
-            errors["photo"] = "No se encontró el archivo de la foto."
-        elif source.suffix.lower() not in ALLOWED_PHOTO_SUFFIXES:
-            errors["photo"] = "Formato no admitido. Usa JPG, PNG o WEBP."
-        elif source.stat().st_size > MAX_PHOTO_BYTES:
+    if form.photo_jpeg is not None:
+        data = form.photo_jpeg
+        if not data:
+            errors["photo"] = "No se pudo guardar la foto. Intenta tomarla de nuevo."
+        elif not data.startswith(JPEG_MAGIC):
+            errors["photo"] = "La foto no es válida. Intenta tomarla de nuevo."
+        elif len(data) > MAX_PHOTO_BYTES:
             errors["photo"] = "La foto no debe pesar más de 5 MB."
 
     return errors
 
 
-def _store_photo(source: Path) -> str:
-    """Copia la foto al area de datos con un nombre unico.
-
-    Se renombra con UUID para que dos socios con el mismo archivo de origen no
-    se pisen y para no arrastrar nombres con acentos o espacios.
-    """
-    target_name = f"{uuid.uuid4().hex}{source.suffix.lower()}"
-    shutil.copy2(source, photos_dir() / target_name)
+def _store_photo(data: bytes) -> str:
+    """Escribe el JPEG ya comprimido una sola vez, con nombre unico."""
+    target_name = f"{uuid.uuid4().hex}.jpg"
+    (photos_dir() / target_name).write_bytes(data)
     return target_name
 
 
@@ -132,7 +127,7 @@ def create_member(form: MemberForm) -> int:
             code=code,
             gender=form.gender,
             birth_date=form.birth_date,
-            photo=_store_photo(form.photo_source) if form.photo_source else None,
+            photo=_store_photo(form.photo_jpeg) if form.photo_jpeg is not None else None,
         )
         session.add(member)
         session.flush()
@@ -157,9 +152,9 @@ def update_member(member_id: int, form: MemberForm) -> None:
         if form.remove_photo:
             _delete_photo(member.photo)
             member.photo = None
-        elif form.photo_source is not None:
+        elif form.photo_jpeg is not None:
             previous = member.photo
-            member.photo = _store_photo(form.photo_source)
+            member.photo = _store_photo(form.photo_jpeg)
             _delete_photo(previous)
 
         logger.info("Socio actualizado: %s (%s)", member.name, member.code)

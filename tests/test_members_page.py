@@ -12,12 +12,19 @@ from gym.data.database import session_scope
 from gym.data.models import Membership, Payment
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.services import members as service
+from gym.ui.dialogs.camera_capture import (
+    CameraCaptureDialog,
+    choose_camera,
+    encode_jpeg,
+    is_virtual_camera,
+)
 from gym.ui.dialogs.member_form import MemberFormDialog
 from gym.ui.dialogs.member_profile import MemberProfileDialog
 from gym.ui.main_window import MainWindow
 from gym.ui.pages.kiosk import PHOTO_SIZE, RESULT_HOLD_MS, KioskPage, _clock_parts
 from gym.ui.pages.members import MembersPage
 from gym.ui.theme import DANGER, SUCCESS, TEXT
+from gym.ui.widgets.feedback import Toast
 
 
 @pytest.fixture
@@ -170,6 +177,118 @@ class TestMemberFormDialog:
         assert actualizado.name == "Ana Maria Lopez"
         assert actualizado.code == codigo
 
+    def test_el_boton_es_tomar_foto(self, qtbot, window):
+        dialog = MemberFormDialog(window)
+        qtbot.addWidget(dialog)
+        assert dialog.take_photo.text() == "Tomar foto"
+
+    def test_sin_camara_avisa_y_permite_guardar(self, qtbot, window, monkeypatch):
+        monkeypatch.setattr("gym.ui.dialogs.member_form.camera_device", lambda: None)
+        dialog = MemberFormDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.show()
+        dialog.name_input.setText("Carlos Mendez")
+        dialog.take_photo.click()
+
+        toasts = dialog.findChildren(Toast)
+        assert toasts
+        assert "cámara" in toasts[0].text()
+        assert dialog.build_form().photo_jpeg is None
+
+        dialog.accept()
+        assert dialog.member_id is not None
+
+    def test_build_form_manda_el_jpeg(self, qtbot, window):
+        from PySide6.QtGui import QColor, QImage
+
+        image = QImage(8, 8, QImage.Format.Format_RGB32)
+        image.fill(QColor(200, 80, 80))
+        jpeg = encode_jpeg(image)
+
+        dialog = MemberFormDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Carlos Mendez")
+        dialog._photo_jpeg = jpeg
+
+        assert dialog.build_form().photo_jpeg == jpeg
+
+
+class TestCameraCaptureDialog:
+    def _image(self):
+        from PySide6.QtGui import QColor, QImage
+
+        image = QImage(20, 20, QImage.Format.Format_RGB32)
+        image.fill(QColor(200, 80, 80))
+        return image
+
+    def test_capturar_muestra_el_still_y_retomar_vuelve_al_visor(self, qtbot, window):
+        dialog = CameraCaptureDialog(window, start_camera=False)
+        qtbot.addWidget(dialog)
+        dialog.show()
+
+        assert dialog.viewfinder.isVisibleTo(dialog)
+        assert not dialog.still.isVisibleTo(dialog)
+        assert dialog.capture_button.isVisibleTo(dialog)
+        assert not dialog.use_button.isVisibleTo(dialog)
+
+        dialog._show_preview(self._image())
+
+        assert not dialog.viewfinder.isVisibleTo(dialog)
+        assert dialog.still.isVisibleTo(dialog)
+        assert dialog.use_button.isVisibleTo(dialog)
+        assert dialog.retake_button.isVisibleTo(dialog)
+        assert not dialog.capture_button.isVisibleTo(dialog)
+
+        dialog._retake()
+
+        assert dialog.viewfinder.isVisibleTo(dialog)
+        assert not dialog.still.isVisibleTo(dialog)
+        assert dialog.capture_button.isVisibleTo(dialog)
+        assert not dialog.use_button.isVisibleTo(dialog)
+
+    def test_usar_esta_foto_devuelve_jpeg(self, qtbot, window):
+        dialog = CameraCaptureDialog(window, start_camera=False)
+        qtbot.addWidget(dialog)
+        dialog._show_preview(self._image())
+        dialog._use_photo()
+
+        assert dialog.jpeg is not None
+        assert dialog.jpeg.startswith(b"\xff\xd8")
+        assert dialog.result() == dialog.DialogCode.Accepted
+
+
+class TestCamaraVirtual:
+    def test_obs_es_virtual(self):
+        assert is_virtual_camera("OBS Virtual Camera")
+        assert is_virtual_camera("OBS-Camera")
+
+    def test_facetime_es_fisica(self):
+        assert not is_virtual_camera("FaceTime HD Camera")
+        assert not is_virtual_camera("Integrated Webcam")
+
+    def test_otras_virtuales(self):
+        assert is_virtual_camera("Camo Camera")
+        assert is_virtual_camera("Snap Camera")
+        assert is_virtual_camera("ManyCam")
+        assert is_virtual_camera("Continuity Camera")
+
+    def test_si_el_default_es_obs_usa_la_webcam(self):
+        elegido = choose_camera(
+            ["OBS Virtual Camera", "FaceTime HD Camera"],
+            "OBS Virtual Camera",
+        )
+        assert elegido == "FaceTime HD Camera"
+
+    def test_si_el_default_es_fisica_la_respeta(self):
+        elegido = choose_camera(
+            ["USB Camera", "FaceTime HD Camera"],
+            "FaceTime HD Camera",
+        )
+        assert elegido == "FaceTime HD Camera"
+
+    def test_sin_camaras(self):
+        assert choose_camera([], None) is None
+
 
 class TestMemberProfileDialog:
     def test_abre_para_socio_sin_membresia(self, qtbot, window):
@@ -211,6 +330,8 @@ class TestKioskPage:
         assert page.result_name.text() == "Ana Lopez"
         assert page.result_name.isVisibleTo(page)
         assert page.photo_slot.isVisibleTo(page)
+        assert page.photo_slot.pixmap() is not None
+        assert not page.photo_slot.pixmap().isNull()
         assert SUCCESS in page.result_name.styleSheet()
 
     def test_membresia_vencida_niega_el_paso(self, qtbot, window, app_catalog):
@@ -242,6 +363,7 @@ class TestKioskPage:
         assert page.result_name.isVisibleTo(page)
         assert DANGER in page.result_name.styleSheet()
         assert page.photo_slot.isVisibleTo(page)
+        assert page.photo_slot.pixmap() is None or page.photo_slot.pixmap().isNull()
         assert not page.result_code_row.isVisibleTo(page)
         assert not page.result_detail.isVisibleTo(page)
 

@@ -24,6 +24,10 @@ a = Analysis(
         "alembic.runtime.migration",
         "logging.config",
         "sqlalchemy.dialects.sqlite",
+        # La captura de foto importa estos al abrir el dialogo; sin ellos el
+        # .exe no encuentra plugins de camara.
+        "PySide6.QtMultimedia",
+        "PySide6.QtMultimediaWidgets",
     ],
     hookspath=[],
     runtime_hooks=[],
@@ -32,7 +36,6 @@ a = Analysis(
         "PySide6.QtWebEngineCore",
         "PySide6.QtWebEngineWidgets",
         "PySide6.Qt3DCore",
-        "PySide6.QtMultimedia",
         "PySide6.QtQuick",
         "PySide6.QtQml",
         "PySide6.QtCharts",

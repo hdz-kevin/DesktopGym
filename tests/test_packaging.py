@@ -45,6 +45,14 @@ def test_se_compila_sin_consola(spec_text):
     assert "console=False" in spec_text
 
 
+def test_el_ejecutable_incluye_la_camara(spec_text):
+    """Sin QtMultimedia el .exe no puede encender la webcam de recepcion."""
+    assert '"PySide6.QtMultimedia"' in spec_text
+    assert '"PySide6.QtMultimediaWidgets"' in spec_text
+    excludes_block = spec_text.split("excludes=[", 1)[1].split("]", 1)[0]
+    assert "QtMultimedia" not in excludes_block
+
+
 def test_el_instalador_conserva_los_datos_del_gimnasio():
     """Desinstalar no debe borrar la base ni los respaldos."""
     texto = INSTALLER.read_text(encoding="utf-8")

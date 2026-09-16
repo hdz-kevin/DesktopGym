@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
 
 from PySide6.QtCore import QDate, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDateEdit,
     QDialog,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -23,8 +22,10 @@ from gym.data.models import Member
 from gym.domain.enums import MemberGender
 from gym.services import members as service
 from gym.services.errors import ValidationError
+from gym.ui.dialogs.camera_capture import CameraCaptureDialog, camera_device
 from gym.ui.pages.helpers import avatar_pixmap
 from gym.ui.widgets.common import primary_button, secondary_button
+from gym.ui.widgets.feedback import ToastKind, ToastManager
 from gym.ui.widgets.inputs import Field
 
 
@@ -33,8 +34,9 @@ class MemberFormDialog(QDialog):
         super().__init__(parent)
         self.member = member
         self.member_id: int | None = member.id if member else None
-        self._photo_source: Path | None = None
+        self._photo_jpeg: bytes | None = None
         self._remove_photo = False
+        self.toasts = ToastManager(self)
 
         self.setWindowTitle("Editar socio" if member else "Nuevo socio")
         self.setModal(True)
@@ -69,13 +71,13 @@ class MemberFormDialog(QDialog):
 
         self.avatar = QLabel(self)
         self.avatar.setFixedSize(72, 72)
-        self.choose_photo = secondary_button("Elegir foto...", self._pick_photo)
+        self.take_photo = secondary_button("Tomar foto", self._take_photo)
         self.clear_photo = secondary_button("Quitar", self._clear_photo)
 
         photo_row = QHBoxLayout()
         photo_row.setSpacing(10)
         photo_row.addWidget(self.avatar)
-        photo_row.addWidget(self.choose_photo)
+        photo_row.addWidget(self.take_photo)
         photo_row.addWidget(self.clear_photo)
         photo_row.addStretch(1)
 
@@ -118,33 +120,39 @@ class MemberFormDialog(QDialog):
             )
 
     def _render_avatar(self) -> None:
-        if self._photo_source is not None:
-            from PySide6.QtGui import QPixmap
-
-            pixmap = QPixmap(str(self._photo_source)).scaled(
-                72,
-                72,
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
+        if self._photo_jpeg is not None:
+            pixmap = QPixmap()
+            pixmap.loadFromData(self._photo_jpeg)
+            self.avatar.setPixmap(
+                pixmap.scaled(
+                    72,
+                    72,
+                    Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
             )
-            self.avatar.setPixmap(pixmap)
             return
 
         photo = None if self._remove_photo else (self.member.photo if self.member else None)
         initials = self.name_input.text().strip()[:2].upper() or "?"
         self.avatar.setPixmap(avatar_pixmap(photo, initials, size=72))
 
-    def _pick_photo(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Elegir foto", "", "Imágenes (*.jpg *.jpeg *.png *.webp *.bmp)"
-        )
-        if path:
-            self._photo_source = Path(path)
+    def _take_photo(self) -> None:
+        if camera_device() is None:
+            self.toasts.show(
+                "No se encontró una cámara. Conecta una e intenta de nuevo.",
+                ToastKind.ERROR,
+            )
+            return
+
+        dialog = CameraCaptureDialog(self)
+        if dialog.exec() and dialog.jpeg:
+            self._photo_jpeg = dialog.jpeg
             self._remove_photo = False
             self._render_avatar()
 
     def _clear_photo(self) -> None:
-        self._photo_source = None
+        self._photo_jpeg = None
         self._remove_photo = True
         self._render_avatar()
 
@@ -159,7 +167,7 @@ class MemberFormDialog(QDialog):
             # Qt devuelve el dato del combo como texto plano, no como Enum.
             gender=MemberGender(self.gender_input.currentData()),
             birth_date=birth,
-            photo_source=self._photo_source,
+            photo_jpeg=self._photo_jpeg,
             remove_photo=self._remove_photo,
         )
 

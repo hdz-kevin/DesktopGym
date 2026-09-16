@@ -16,7 +16,7 @@ def alta(nombre: str = "Ana Lopez", **kwargs) -> int:
         name=nombre,
         gender=kwargs.pop("gender", MemberGender.FEMALE),
         birth_date=kwargs.pop("birth_date", None),
-        photo_source=kwargs.pop("photo_source", None),
+        photo_jpeg=kwargs.pop("photo_jpeg", None),
     )
     return service.create_member(form)
 
@@ -69,38 +69,50 @@ class TestCrear:
 
 
 class TestFoto:
-    def _foto(self, tmp_path, nombre="foto.png", contenido=b"x"):
-        path = tmp_path / nombre
-        path.write_bytes(contenido)
-        return path
+    def _jpeg(self, contenido: bytes | None = None) -> bytes:
+        if contenido is not None:
+            return contenido
+        from PySide6.QtCore import QBuffer, QIODevice
+        from PySide6.QtGui import QColor, QImage
 
-    def test_guarda_la_foto_con_nombre_unico(self, app_db, tmp_path):
-        origen = self._foto(tmp_path)
-        member = service.get_member(alta(photo_source=origen))
+        image = QImage(1, 1, QImage.Format.Format_RGB32)
+        image.fill(QColor(200, 80, 80))
+        buffer = QBuffer()
+        buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+        assert image.save(buffer, "JPEG", 85)
+        return bytes(buffer.data())
+
+    def test_guarda_la_foto_con_nombre_unico(self, app_db):
+        member = service.get_member(alta(photo_jpeg=self._jpeg()))
 
         assert member.photo is not None
-        assert member.photo != origen.name
+        assert member.photo.endswith(".jpg")
         assert service.photo_path(member.photo).exists()
 
-    def test_dos_socios_con_el_mismo_archivo_no_se_pisan(self, app_db, tmp_path):
-        origen = self._foto(tmp_path)
-        uno = service.get_member(alta("Socio Uno", photo_source=origen))
-        dos = service.get_member(alta("Socio Dos", photo_source=origen))
+    def test_dos_socios_con_el_mismo_archivo_no_se_pisan(self, app_db):
+        jpeg = self._jpeg()
+        uno = service.get_member(alta("Socio Uno", photo_jpeg=jpeg))
+        dos = service.get_member(alta("Socio Dos", photo_jpeg=jpeg))
         assert uno.photo != dos.photo
 
-    def test_rechaza_formato_no_admitido(self, app_db, tmp_path):
+    def test_rechaza_bytes_vacios(self, app_db):
         with pytest.raises(ValidationError) as exc:
-            alta(photo_source=self._foto(tmp_path, "foto.gif"))
+            alta(photo_jpeg=b"")
         assert "photo" in exc.value.errors
 
-    def test_rechaza_foto_mayor_a_cinco_megas(self, app_db, tmp_path):
-        pesada = self._foto(tmp_path, "grande.png", b"x" * (5 * 1024 * 1024 + 1))
+    def test_rechaza_formato_no_jpeg(self, app_db):
         with pytest.raises(ValidationError) as exc:
-            alta(photo_source=pesada)
+            alta(photo_jpeg=b"GIF89a")
         assert "photo" in exc.value.errors
 
-    def test_cambiar_la_foto_borra_la_anterior(self, app_db, tmp_path):
-        member_id = alta(photo_source=self._foto(tmp_path, "vieja.png"))
+    def test_rechaza_foto_mayor_a_cinco_megas(self, app_db):
+        pesada = b"\xff\xd8" + b"x" * (5 * 1024 * 1024)
+        with pytest.raises(ValidationError) as exc:
+            alta(photo_jpeg=pesada)
+        assert "photo" in exc.value.errors
+
+    def test_cambiar_la_foto_borra_la_anterior(self, app_db):
+        member_id = alta(photo_jpeg=self._jpeg())
         anterior = service.get_member(member_id).photo
 
         service.update_member(
@@ -108,15 +120,15 @@ class TestFoto:
             service.MemberForm(
                 name="Ana Lopez",
                 gender=MemberGender.FEMALE,
-                photo_source=self._foto(tmp_path, "nueva.png"),
+                photo_jpeg=self._jpeg(),
             ),
         )
 
         assert service.photo_path(anterior) is None
         assert service.photo_path(service.get_member(member_id).photo) is not None
 
-    def test_quitar_la_foto(self, app_db, tmp_path):
-        member_id = alta(photo_source=self._foto(tmp_path))
+    def test_quitar_la_foto(self, app_db):
+        member_id = alta(photo_jpeg=self._jpeg())
         service.update_member(
             member_id,
             service.MemberForm(name="Ana Lopez", gender=MemberGender.FEMALE, remove_photo=True),

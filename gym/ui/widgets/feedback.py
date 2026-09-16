@@ -91,10 +91,12 @@ class ToastManager:
             if not isValid(toast):
                 continue
             toast.adjustSize()
-            x = self.host.width() - toast.width() - self.MARGIN
-            bottom -= toast.height()
-            toast.move(x, bottom)
-            bottom -= self.SPACING
+            x = max(self.MARGIN, self.host.width() - toast.width() - self.MARGIN)
+            top = bottom - toast.height()
+            if top < self.MARGIN:
+                top = self.MARGIN
+            toast.move(x, top)
+            bottom = top - self.SPACING
 
 
 def confirm(
