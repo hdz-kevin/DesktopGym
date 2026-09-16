@@ -152,6 +152,21 @@ class TestReporte:
         assert len(desglose) >= 1
         assert sum(total for _, total in desglose) == 5500
 
+    def test_una_venta_anulada_no_entra_al_corte(self, app_db):
+        product_id = products_service.create_product(
+            products_service.ProductForm(name="Agua", price_cents=1500, stock=10)
+        )
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), 2)
+        sale_id = sales_service.checkout(cart)
+        sales_service.void_sale(sale_id)
+
+        reporte = service.build_report(VisitRange.TODAY)
+        assert reporte.sales.count == 0
+        assert reporte.sales.revenue_cents == 0
+        assert reporte.total_revenue_cents == 0
+        assert service.daily_breakdown(VisitRange.TODAY) == []
+
 
 class TestPantalla:
     def test_muestra_los_totales(self, qtbot, window, app_catalog):

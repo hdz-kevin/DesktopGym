@@ -268,12 +268,18 @@ class Sale(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     total_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     sold_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
+    # Evento, no estado: el ticket se conserva y el corte ignora las anuladas.
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     lines: Mapped[list[ProductSale]] = relationship(
         back_populates="sale", cascade="all, delete-orphan"
     )
 
     __table_args__ = (Index("ix_sales_sold_at", "sold_at"),)
+
+    @property
+    def is_voided(self) -> bool:
+        return self.voided_at is not None
 
     @property
     def item_count(self) -> int:

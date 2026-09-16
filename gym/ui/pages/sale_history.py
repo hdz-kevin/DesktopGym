@@ -9,14 +9,17 @@ from gym.data.models import Sale
 from gym.domain.dates import format_datetime
 from gym.domain.money import format_money
 from gym.services import sales as service
+from gym.services.errors import ServiceError
 from gym.services.visits import VisitRange
-from gym.ui.dialogs.sale_detail import SaleDetailDialog
+from gym.ui.dialogs.sale_detail import SaleDetailDialog, confirm_void
 from gym.ui.main_window import Page
+from gym.ui.theme import SUCCESS, TEXT_MUTED
 from gym.ui.widgets.common import (
     ControlsRow,
     FilterChips,
     PageHeader,
     StatCard,
+    danger_button,
     secondary_button,
 )
 from gym.ui.widgets.table import Column, PagedTable
@@ -34,7 +37,7 @@ class SalesHistoryPage(Page):
         self.window_ref = window
         self._range = VisitRange.TODAY
 
-        header = PageHeader("Historial de Ventas", "Consulta el historial de ventas con detalle")
+        header = PageHeader("Historial de Ventas", "Consulta el historial de ventas de productos a detalle")
 
         self.stat_today = StatCard("Hoy")
         self.stat_week = StatCard("Esta semana")
@@ -51,6 +54,7 @@ class SalesHistoryPage(Page):
 
         controls = ControlsRow()
         controls.addWidget(self.chips, 1)
+        controls.addWidget(danger_button("Anular", self.void_selected))
         controls.addWidget(secondary_button("Ver detalle", self.open_detail))
 
         self.table = PagedTable[Sale](
@@ -66,13 +70,20 @@ class SalesHistoryPage(Page):
                     "Total",
                     lambda s: format_money(s.total_cents),
                     width=120,
-                    align=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+                    align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
+                ),
+                Column(
+                    "Estado",
+                    lambda s: "Anulado" if s.is_voided else "Cobrado",
+                    width=100,
+                    color=lambda s: TEXT_MUTED if s.is_voided else SUCCESS,
+                    align=Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
                 ),
             ],
             page_size=25,
             empty_text="No hay ventas en este periodo.",
         )
-        self.table.row_activated.connect(lambda s: SaleDetailDialog(s.id, self).exec())
+        self.table.row_activated.connect(self._show_detail)
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
@@ -104,8 +115,31 @@ class SalesHistoryPage(Page):
         self.load()
 
     def open_detail(self) -> None:
+        self._show_detail()
+
+    def _show_detail(self, sale: Sale | None = None) -> None:
+        if sale is None:
+            sale = self.table.selected_record()
+        if sale is None:
+            self.window_ref.notify("Selecciona una venta de la tabla primero.")
+            return
+        dialog = SaleDetailDialog(sale.id, self)
+        dialog.exec()
+        if dialog.voided:
+            self.window_ref.notify_success("Venta anulada.")
+            self.refresh()
+
+    def void_selected(self) -> None:
         sale = self.table.selected_record()
         if sale is None:
             self.window_ref.notify("Selecciona una venta de la tabla primero.")
             return
-        SaleDetailDialog(sale.id, self).exec()
+        if not confirm_void(self, sale):
+            return
+        try:
+            service.void_sale(sale.id)
+        except ServiceError as error:
+            self.window_ref.notify_error(str(error))
+            return
+        self.window_ref.notify_success("Venta anulada.")
+        self.refresh()

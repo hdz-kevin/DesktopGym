@@ -1,4 +1,4 @@
-"""Detalle de un ticket de tienda. Solo lectura: las ventas no se corrigen."""
+"""Detalle de un ticket de tienda. Se puede anular, no editar."""
 
 from __future__ import annotations
 
@@ -16,14 +16,30 @@ from gym.data.models import Sale
 from gym.domain.dates import format_datetime
 from gym.domain.money import format_money
 from gym.services import sales as service
-from gym.ui.widgets.common import secondary_button
+from gym.services.errors import ServiceError
+from gym.ui.widgets.common import Badge, danger_button, secondary_button
+from gym.ui.widgets.feedback import alert, confirm
 from gym.ui.widgets.table import Column, PagedTable
+
+
+def confirm_void(parent: QWidget, sale: Sale) -> bool:
+    return confirm(
+        parent,
+        "Anular venta",
+        f"Se devolverán {sale.item_count} pieza(s) al inventario y el corte "
+        f"de hoy dejará de contar {format_money(sale.total_cents)}.\n\n"
+        "Esta acción no se puede deshacer.",
+        confirm_text="Anular",
+        destructive=True,
+    )
 
 
 class SaleDetailDialog(QDialog):
     def __init__(self, sale_id: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("saleDetail")
+        self.sale_id = sale_id
+        self.voided = False
         sale = service.get_sale(sale_id)
         self.setWindowTitle("Detalle de venta")
         self.setModal(True)
@@ -35,6 +51,8 @@ class SaleDetailDialog(QDialog):
         details.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         details.addRow(self._label("Artículos"), QLabel(str(sale.item_count), self))
         details.addRow(self._label("Total"), QLabel(format_money(sale.total_cents), self))
+        if sale.is_voided and sale.voided_at is not None:
+            details.addRow(self._label("Anulada"), QLabel(format_datetime(sale.voided_at), self))
 
         self.table = PagedTable(
             columns=[
@@ -64,6 +82,8 @@ class SaleDetailDialog(QDialog):
         self.table.set_data(list(sale.lines), len(sale.lines))
 
         buttons = QHBoxLayout()
+        if service.can_void(sale):
+            buttons.addWidget(danger_button("Anular", lambda: self._void(sale)))
         buttons.addStretch(1)
         buttons.addWidget(secondary_button("Cerrar", self.accept))
 
@@ -80,6 +100,17 @@ class SaleDetailDialog(QDialog):
         layout.addLayout(body, 1)
         layout.addLayout(buttons)
 
+    def _void(self, sale: Sale) -> None:
+        if not confirm_void(self, sale):
+            return
+        try:
+            service.void_sale(self.sale_id)
+        except ServiceError as error:
+            alert(self, "No se puede anular", str(error))
+            return
+        self.voided = True
+        self.accept()
+
     def _heading(self, sale: Sale) -> QWidget:
         box = QWidget(self)
         box.setObjectName("saleHeading")
@@ -90,6 +121,10 @@ class SaleDetailDialog(QDialog):
         title = QLabel(f"Venta del {format_datetime(sale.sold_at)}", box)
         title.setObjectName("pageTitle")
         row.addWidget(title)
+        if sale.is_voided:
+            row.addWidget(Badge("Anulado", "badgeNeutral", box))
+        else:
+            row.addWidget(Badge("Cobrado", "badgeSuccess", box))
         row.addStretch(1)
         return box
 

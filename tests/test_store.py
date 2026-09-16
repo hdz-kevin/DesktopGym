@@ -305,6 +305,86 @@ class TestCobro:
         assert top[0][1] == 5
 
 
+class TestAnulacion:
+    def _cobrar(self, product_id: int, quantity: int = 3, sold_at=None) -> int:
+        cart = Cart()
+        cart.add(products_service.get_product(product_id), quantity)
+        return service.checkout(cart, sold_at=sold_at)
+
+    def test_devuelve_el_stock_y_sella_la_venta(self, app_db):
+        product_id = producto("Agua", 1500, stock=10)
+        sale_id = self._cobrar(product_id, 3)
+
+        service.void_sale(sale_id)
+
+        venta = service.get_sale(sale_id)
+        assert venta.is_voided
+        assert venta.voided_at is not None
+        assert products_service.get_product(product_id).stock == 10
+
+    def test_sigue_en_el_historial(self, app_db):
+        product_id = producto("Agua", stock=10)
+        self._cobrar(product_id)
+        sale_id = self._cobrar(product_id)
+        service.void_sale(sale_id)
+
+        filas, total = service.list_sales(VisitRange.TODAY)
+        assert total == 2
+        assert {venta.id: venta.is_voided for venta in filas}[sale_id]
+
+    def test_el_corte_y_los_totales_la_ignoran(self, app_db):
+        product_id = producto("Agua", 1500, stock=10)
+        sale_id = self._cobrar(product_id, 2)
+        service.void_sale(sale_id)
+
+        totales = service.totals(VisitRange.TODAY)
+        assert totales.count == 0
+        assert totales.items == 0
+        assert totales.revenue_cents == 0
+        assert service.top_products(VisitRange.TODAY) == []
+
+    def test_una_venta_cobrada_sigue_contando(self, app_db):
+        product_id = producto("Agua", 1500, stock=10)
+        self._cobrar(product_id, 2)
+        sale_id = self._cobrar(product_id, 1)
+        service.void_sale(sale_id)
+
+        totales = service.totals(VisitRange.TODAY)
+        assert totales.count == 1
+        assert totales.revenue_cents == 3000
+        assert totales.items == 2
+
+    def test_rechaza_anular_dos_veces(self, app_db):
+        product_id = producto("Agua", stock=10)
+        sale_id = self._cobrar(product_id)
+        service.void_sale(sale_id)
+
+        with pytest.raises(ServiceError, match="ya está anulada"):
+            service.void_sale(sale_id)
+        assert products_service.get_product(product_id).stock == 10
+
+    def test_rechaza_ventas_de_otro_dia(self, app_db):
+        product_id = producto("Agua", stock=10)
+        sale_id = self._cobrar(product_id, sold_at=datetime.now() - timedelta(days=1))
+
+        with pytest.raises(ServiceError, match="ventas de hoy"):
+            service.void_sale(sale_id)
+        assert products_service.get_product(product_id).stock == 7
+
+    def test_producto_desactivado_igual_recupera_stock(self, app_db):
+        product_id = producto("Agua", stock=10)
+        sale_id = self._cobrar(product_id, 4)
+        products_service.set_active(product_id, False)
+
+        service.void_sale(sale_id)
+
+        assert products_service.get_product(product_id).stock == 10
+
+    def test_venta_inexistente(self, app_db):
+        with pytest.raises(NotFoundError):
+            service.void_sale(999)
+
+
 class TestPantallaProductos:
     def test_lista_los_productos(self, qtbot, window):
         producto("Agua")
@@ -526,3 +606,51 @@ class TestPantallaHistorial:
     def test_sin_seleccion_no_falla(self, qtbot, window):
         page = self._page(qtbot, window)
         page.open_detail()
+        page.void_selected()
+
+    def test_anular_devuelve_stock_y_marca_la_fila(self, qtbot, window, monkeypatch):
+        monkeypatch.setattr("gym.ui.pages.sale_history.confirm_void", lambda *a, **k: True)
+
+        product_id = producto("Agua", 1500, stock=10)
+        self._venta(product_id, quantity=2)
+
+        page = self._page(qtbot, window)
+        page.table.view.selectRow(0)
+        page.void_selected()
+
+        assert products_service.get_product(product_id).stock == 10
+        assert page.stat_today.value_label.text() == "0"
+        assert page.table.model.rowCount() == 1
+        estado = page.table.model.data(page.table.model.index(0, 3), Qt.ItemDataRole.DisplayRole)
+        assert estado == "Anulado"
+
+    def test_anular_desde_el_detalle(self, qtbot, window, monkeypatch):
+        monkeypatch.setattr("gym.ui.dialogs.sale_detail.confirm_void", lambda *a, **k: True)
+
+        product_id = producto("Agua", 1500, stock=10)
+        self._venta(product_id, quantity=2)
+
+        page = self._page(qtbot, window)
+        sale = page.table.model.record_at(0)
+        assert sale is not None
+
+        dialog = SaleDetailDialog(sale.id, page)
+        qtbot.addWidget(dialog)
+        dialog._void(sale)
+
+        assert dialog.voided
+        assert products_service.get_product(product_id).stock == 10
+
+    def test_no_anula_ventas_viejas(self, qtbot, window, monkeypatch):
+        monkeypatch.setattr("gym.ui.pages.sale_history.confirm_void", lambda *a, **k: True)
+
+        product_id = producto("Agua", 1500, stock=10)
+        self._venta(product_id, sold_at=datetime.now() - timedelta(days=1))
+
+        page = self._page(qtbot, window)
+        page._on_range(VisitRange.ALL)
+        page.table.view.selectRow(0)
+        page.void_selected()
+
+        assert not service.get_sale(page.table.selected_record().id).is_voided
+        assert products_service.get_product(product_id).stock == 8

@@ -118,7 +118,7 @@ def build_report(range_: VisitRange, moment: date | None = None) -> CashReport:
                 select(
                     func.count(Sale.id),
                     func.coalesce(func.sum(Sale.total_cents), 0),
-                ),
+                ).where(Sale.voided_at.is_(None)),
                 Sale.sold_at,
                 range_,
                 moment,
@@ -144,16 +144,19 @@ def daily_breakdown(range_: VisitRange, moment: date | None = None) -> list[tupl
     with session_scope() as session:
         rows: dict[str, int] = {}
         sources = [
-            (Visit.visit_at, Visit.price_cents, Visit.id),
-            (Sale.sold_at, Sale.total_cents, Sale.id),
-            (Payment.created_at, Payment.price_paid_cents, Payment.id),
+            (Visit.visit_at, Visit.price_cents, None),
+            (Sale.sold_at, Sale.total_cents, Sale.voided_at.is_(None)),
+            (Payment.created_at, Payment.price_paid_cents, None),
         ]
-        for column, amount, _ in sources:
-            for day, total in session.execute(
+        for column, amount, extra in sources:
+            statement = (
                 select(func.date(column), func.coalesce(func.sum(amount), 0))
                 .where(column >= start, column <= end)
                 .group_by(func.date(column))
-            ).all():
+            )
+            if extra is not None:
+                statement = statement.where(extra)
+            for day, total in session.execute(statement).all():
                 rows[day] = rows.get(day, 0) + int(total or 0)
 
         return sorted(rows.items())

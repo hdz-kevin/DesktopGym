@@ -119,9 +119,11 @@ def test_productos_sin_control_pasan_a_stock_cero(tmp_path, monkeypatch):
         ).scalar()
 
         sales = connection.exec_driver_sql("SELECT count(*) FROM product_sales").scalar()
+        voided_at = connection.exec_driver_sql("SELECT voided_at FROM sales WHERE id = 1").scalar()
 
     assert rows == {"Entrenamiento": 0, "Agua": 10}
     assert not_null == 1
     assert sales == 1
+    assert voided_at is None
 
     database.dispose_engine()

@@ -143,6 +143,48 @@ def checkout(cart: Cart, sold_at: datetime | None = None) -> int:
         return sale.id
 
 
+def can_void(sale: Sale, at: datetime | None = None) -> bool:
+    """Solo las ventas cobradas hoy se pueden deshacer."""
+    if sale.voided_at is not None:
+        return False
+    moment = at or datetime.now()
+    start, end = day_bounds(moment.date())
+    return start <= sale.sold_at <= end
+
+
+def void_sale(sale_id: int, at: datetime | None = None) -> None:
+    """Anula el ticket y devuelve el stock en la misma transaccion.
+
+    No se borra: el historial tiene que mostrar que hubo un cobro y se deshizo.
+    El corte ignora las anuladas, de modo que el cajon de hoy vuelve a cuadrar.
+    """
+    moment = at or datetime.now()
+
+    with session_scope() as session:
+        sale = session.scalar(
+            select(Sale).where(Sale.id == sale_id).options(selectinload(Sale.lines))
+        )
+        if sale is None:
+            raise NotFoundError("La venta ya no existe.")
+        if sale.voided_at is not None:
+            raise ServiceError("Esta venta ya está anulada.")
+        if not can_void(sale, moment):
+            raise ServiceError("Solo se pueden anular ventas de hoy. ")
+
+        for line in sale.lines:
+            product = session.get(Product, line.product_id)
+            if product is None:
+                raise NotFoundError(f'El producto "{line.product_name}" ya no existe.')
+            product.stock += line.quantity
+
+        sale.voided_at = moment
+        logger.info("Venta %s anulada", sale.id)
+
+
+def _excluding_voided(statement):
+    return statement.where(Sale.voided_at.is_(None))
+
+
 def _apply_range(statement, range_: VisitRange, moment: date | None = None):
     moment = moment or date.today()
     bounds = None
@@ -194,20 +236,24 @@ class SalesTotals:
 def totals(range_: VisitRange, moment: date | None = None) -> SalesTotals:
     with session_scope() as session:
         count, revenue = session.execute(
-            _apply_range(
-                select(func.count(Sale.id), func.coalesce(func.sum(Sale.total_cents), 0)),
-                range_,
-                moment,
+            _excluding_voided(
+                _apply_range(
+                    select(func.count(Sale.id), func.coalesce(func.sum(Sale.total_cents), 0)),
+                    range_,
+                    moment,
+                )
             )
         ).one()
 
         items = session.scalar(
-            _apply_range(
-                select(func.coalesce(func.sum(ProductSale.quantity), 0)).join(
-                    Sale, ProductSale.sale_id == Sale.id
-                ),
-                range_,
-                moment,
+            _excluding_voided(
+                _apply_range(
+                    select(func.coalesce(func.sum(ProductSale.quantity), 0)).join(
+                        Sale, ProductSale.sale_id == Sale.id
+                    ),
+                    range_,
+                    moment,
+                )
             )
         )
         return SalesTotals(
@@ -221,13 +267,15 @@ def top_products(range_: VisitRange, limit: int = 5) -> list[tuple[str, int, int
     """Productos mas vendidos: nombre, piezas e importe."""
     with session_scope() as session:
         rows = session.execute(
-            _apply_range(
-                select(
-                    ProductSale.product_name,
-                    func.sum(ProductSale.quantity),
-                    func.sum(ProductSale.subtotal_cents),
-                ).join(Sale, ProductSale.sale_id == Sale.id),
-                range_,
+            _excluding_voided(
+                _apply_range(
+                    select(
+                        ProductSale.product_name,
+                        func.sum(ProductSale.quantity),
+                        func.sum(ProductSale.subtotal_cents),
+                    ).join(Sale, ProductSale.sale_id == Sale.id),
+                    range_,
+                )
             )
             .group_by(ProductSale.product_name)
             .order_by(func.sum(ProductSale.quantity).desc())

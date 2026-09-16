@@ -161,7 +161,11 @@ QScrollBar::handle:horizontal {{ background: #cbd2dc; border-radius: 5px; min-wi
 #membershipHeading #badgeSuccess,
 #membershipHeading #badgeDanger,
 #membershipHeading #badgeNeutral,
-#membershipHeading #badgeWarning {{
+#membershipHeading #badgeWarning,
+#saleHeading #badgeSuccess,
+#saleHeading #badgeDanger,
+#saleHeading #badgeNeutral,
+#saleHeading #badgeWarning {{
     font-size: 14px; padding: 6px 12px;
 }}
 #memberHeading #badgeSuccess,
