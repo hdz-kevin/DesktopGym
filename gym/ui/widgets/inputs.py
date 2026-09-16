@@ -21,6 +21,7 @@ class SearchBox(QLineEdit):
 
     def __init__(self, placeholder: str = "Buscar...", parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("searchBox")
         self.setPlaceholderText(placeholder)
         self.setClearButtonEnabled(True)
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from gym.data.models import Payment
 from gym.domain.dates import format_range
@@ -17,16 +17,24 @@ from gym.ui.widgets.table import Column, PagedTable
 class MembershipHistoryDialog(QDialog):
     def __init__(self, membership_id: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("membershipHistory")
         self.membership_id = membership_id
         self.changed = False
 
         membership = service.get_membership(membership_id)
         self.setWindowTitle(f"Historial · {membership.member.name}")
         self.setModal(True)
-        self.setMinimumSize(800, 520)
+        self.setMinimumSize(800, 500)
 
-        self.summary = QLabel("", self)
-        self.summary.setObjectName("muted")
+        self.payments_value = QLabel("", self)
+        self.total_value = QLabel("", self)
+
+        details = QFormLayout()
+        details.setVerticalSpacing(14)
+        details.setHorizontalSpacing(16)
+        details.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        details.addRow(self._label("Pagos"), self.payments_value)
+        details.addRow(self._label("Total pagado"), self.total_value)
 
         self.table = PagedTable[Payment](
             columns=[
@@ -54,15 +62,22 @@ class MembershipHistoryDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
-        layout.addWidget(self._heading(membership))
-        layout.addWidget(self.summary)
-        layout.addWidget(self.table, 1)
+
+        body = QVBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(20)
+        body.addWidget(self._heading(membership))
+        body.addLayout(details)
+        body.addWidget(self.table, 1)
+
+        layout.addLayout(body, 1)
         layout.addLayout(buttons)
 
         self.load()
 
     def _heading(self, membership) -> QWidget:
         box = QWidget(self)
+        box.setObjectName("membershipHeading")
         row = QHBoxLayout(box)
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(10)
@@ -74,10 +89,14 @@ class MembershipHistoryDialog(QDialog):
         row.addStretch(1)
         return box
 
+    def _label(self, text: str) -> QLabel:
+        label = QLabel(text, self)
+        label.setObjectName("formLabel")
+        return label
+
     def load(self) -> None:
         membership = service.get_membership(self.membership_id)
         payments = sorted(membership.payments, key=lambda p: p.start_date, reverse=True)
         self.table.set_data(payments, len(payments))
-        self.summary.setText(
-            f"{len(payments)} pago(s) · Total pagado: {format_money(membership.total_paid_cents)}"
-        )
+        self.payments_value.setText(str(len(payments)))
+        self.total_value.setText(format_money(membership.total_paid_cents))

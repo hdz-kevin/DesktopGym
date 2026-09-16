@@ -196,7 +196,8 @@ class TestHistoryDialog:
         qtbot.addWidget(dialog)
 
         assert dialog.table.model.rowCount() == 2
-        assert "Total pagado" in dialog.summary.text()
+        assert dialog.payments_value.text() == "2"
+        assert dialog.total_value.text().startswith("$")
         titulos = [
             label.text()
             for label in dialog.findChildren(QLabel)

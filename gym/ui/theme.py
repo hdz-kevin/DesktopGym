@@ -11,7 +11,6 @@ BORDER = "#e2e5ea"
 TEXT = "#1c2430"
 TEXT_MUTED = "#586472"
 SIDEBAR_BG = "#151b26"
-SIDEBAR_TEXT = "#9aa5b4"
 SIDEBAR_ACTIVE = "#232c3d"
 
 PRIMARY = "#2563eb"
@@ -27,7 +26,7 @@ NEUTRAL_BG = "#eef1f5"
 STYLESHEET = f"""
 QWidget {{
     font-family: "Segoe UI", "SF Pro Text", "Inter", sans-serif;
-    font-size: 14px;
+    font-size: 15px;
     color: {TEXT};
 }}
 QMainWindow, #content {{ background: {BG}; }}
@@ -36,10 +35,10 @@ QMainWindow, #content {{ background: {BG}; }}
 #sidebarTitle {{ color: {TEXT}; font-size: 17px; font-weight: 700; }}
 #sidebarSubtitle {{ color: {TEXT_MUTED}; font-size: 12px; }}
 #sidebarSection {{
-    color: #5c6879; font-size: 11px; font-weight: 700; padding: 8px 16px 4px 16px;
+    color: {TEXT}; font-size: 14px; font-weight: 600; padding: 18px 12px 4px 12px;
 }}
 QPushButton#navButton {{
-    background: transparent; color: {SIDEBAR_TEXT}; border: none;
+    background: transparent; color: {TEXT_MUTED}; border: none;
     text-align: left; padding: 10px 16px; border-radius: 8px; font-size: 14px;
 }}
 QPushButton#navButton:hover {{ background: {SIDEBAR_ACTIVE}; color: #ffffff; }}
@@ -48,8 +47,14 @@ QPushButton#navButton:checked {{
 }}
 #navShortcut {{ color: #4a5568; font-size: 11px; }}
 
-#pageTitle {{ font-size: 22px; font-weight: 700; }}
-#pageSubtitle {{ color: {TEXT_MUTED}; font-size: 13px; }}
+#pageTitle {{ font-size: 24px; font-weight: 700; }}
+#pageSubtitle {{ color: {TEXT_MUTED}; font-size: 15px; }}
+#membershipHeading #pageTitle,
+#saleHeading #pageTitle {{ font-size: 20px; }}
+#memberName {{ font-size: 22px; font-weight: 700; }}
+#memberProfile QLabel#formLabel,
+#saleDetail QLabel#formLabel,
+#membershipHistory QLabel#formLabel {{ font-size: 15px; }}
 
 #card {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 12px; }}
 #card[kind="success"] {{
@@ -58,8 +63,8 @@ QPushButton#navButton:checked {{
 #card[kind="danger"] {{
     background: {DANGER_BG}; border: 1px solid {DANGER};
 }}
-#statValue {{ font-size: 26px; font-weight: 700; }}
-#statLabel {{ color: {TEXT_MUTED}; font-size: 12px; }}
+#statValue {{ font-size: 24px; font-weight: 700; }}
+#statLabel {{ color: {TEXT_MUTED}; font-size: 14px; }}
 #kioskClock {{ font-size: 20px; font-weight: 700; }}
 #kioskDate {{ color: {TEXT_MUTED}; font-size: 16px; }}
 QLineEdit#kioskCodeInput {{
@@ -88,7 +93,7 @@ QPushButton#ghost {{ background: transparent; border: none; color: {TEXT_MUTED};
 QPushButton#ghost:hover {{ color: {TEXT}; background: {NEUTRAL_BG}; }}
 
 QPushButton#filterChip {{
-    background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 16px; padding: 6px 14px;
+    background: {SURFACE}; border: 1px solid {BORDER}; padding: 6px 14px; font-size: 14px;
     color: {TEXT_MUTED};
 }}
 QPushButton#filterChip:checked {{
@@ -99,6 +104,7 @@ QLineEdit, QComboBox, QDateEdit, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QText
     background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 8px;
     padding: 8px 10px; selection-background-color: {PRIMARY}; selection-color: #ffffff;
 }}
+QLineEdit#searchBox {{ font-size: 15px; padding: 8px 12px; }}
 QLineEdit:focus, QComboBox:focus, QDateEdit:focus, QSpinBox:focus,
 QDoubleSpinBox:focus, QPlainTextEdit:focus {{ border: 1px solid {PRIMARY}; }}
 QLineEdit[invalid="true"] {{ border: 1px solid {DANGER}; }}
@@ -120,12 +126,12 @@ QListWidget::item:selected {{
 QTableView {{
     background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 12px;
     gridline-color: transparent; selection-background-color: #e5edff;
-    selection-color: {TEXT}; outline: none;
+    selection-color: {TEXT}; outline: none; font-size: 15px;
 }}
-QTableView::item {{ padding: 10px 8px; border-bottom: 1px solid #f0f2f5; }}
+QTableView::item {{ padding: 12px 10px; border-bottom: 1px solid #f0f2f5; }}
 QHeaderView::section {{
     background: {SURFACE}; color: {TEXT_MUTED}; border: none;
-    border-bottom: 1px solid {BORDER}; padding: 10px 8px; font-weight: 600; font-size: 12px;
+    border-bottom: 1px solid {BORDER}; padding: 12px 8px; font-weight: 600; font-size: 14px;
 }}
 QTableView QTableCornerButton::section {{ background: {SURFACE}; border: none; }}
 
@@ -138,19 +144,31 @@ QScrollBar::handle:horizontal {{ background: #cbd2dc; border-radius: 5px; min-wi
 
 #badgeSuccess {{
     background: {SUCCESS_BG}; color: {SUCCESS}; border-radius: 10px;
-    padding: 3px 10px; font-size: 12px; font-weight: 600;
+    padding: 3px 10px; font-size: 12px; font-weight: 500;
 }}
 #badgeDanger {{
     background: {DANGER_BG}; color: {DANGER}; border-radius: 10px;
-    padding: 3px 10px; font-size: 12px; font-weight: 600;
+    padding: 3px 10px; font-size: 12px; font-weight: 500;
 }}
 #badgeNeutral {{
     background: {NEUTRAL_BG}; color: {TEXT_MUTED}; border-radius: 10px;
-    padding: 3px 10px; font-size: 12px; font-weight: 600;
+    padding: 3px 10px; font-size: 12px; font-weight: 500;
 }}
 #badgeWarning {{
     background: {WARNING_BG}; color: {WARNING}; border-radius: 10px;
-    padding: 3px 10px; font-size: 12px; font-weight: 600;
+    padding: 3px 10px; font-size: 12px; font-weight: 500;
+}}
+#membershipHeading #badgeSuccess,
+#membershipHeading #badgeDanger,
+#membershipHeading #badgeNeutral,
+#membershipHeading #badgeWarning {{
+    font-size: 14px; padding: 6px 12px;
+}}
+#memberHeading #badgeSuccess,
+#memberHeading #badgeDanger,
+#memberHeading #badgeNeutral,
+#memberHeading #badgeWarning {{
+    font-size: 14px; padding: 6px 12px;
 }}
 
 #toastSuccess {{
@@ -168,7 +186,7 @@ QScrollBar::handle:horizontal {{ background: #cbd2dc; border-radius: 5px; min-wi
 #separator {{ background: {BORDER}; }}
 
 QDialog {{ background: {BG}; }}
-QLabel#formLabel {{ color: {TEXT_MUTED}; font-size: 12px; font-weight: 600; }}
+QLabel#formLabel {{ color: {TEXT_MUTED}; font-size: 14px; font-weight: 600; }}
 QCheckBox {{ spacing: 8px; }}
 """
 

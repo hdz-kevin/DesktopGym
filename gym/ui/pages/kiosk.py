@@ -84,12 +84,12 @@ class KioskPage(Page):
         self._clock_timer.timeout.connect(self._tick)
 
         self.heading = QLabel("", self)
-        self.heading.setStyleSheet(f"font-size: 26px; font-weight: 700; color: {TEXT};")
+        self.heading.setStyleSheet(f"font-size: 24px; font-weight: 700; color: {TEXT};")
         self.heading.setContentsMargins(0, 0, 0, 5)
         self.heading.setWordWrap(True)
 
         self.address = QLabel("", self)
-        self.address.setStyleSheet(f"font-size: 18px; color: {TEXT_MUTED};")
+        self.address.setStyleSheet(f"font-size: 16px; color: {TEXT_MUTED};")
         self.address.setWordWrap(True)
 
         gym = QWidget(self)
@@ -106,7 +106,7 @@ class KioskPage(Page):
         self.clock_time.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.clock_date = QLabel(self)
-        self.clock_date.setStyleSheet(f"font-size: 18px; color: {TEXT_MUTED};")
+        self.clock_date.setStyleSheet(f"font-size: 16px; color: {TEXT_MUTED};")
         self.clock_date.setObjectName("kioskDate")
         self.clock_date.setAlignment(Qt.AlignmentFlag.AlignRight)
 

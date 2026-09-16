@@ -124,7 +124,8 @@ class PagedTable(QWidget, Generic[T]):
         self.view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.view.setAlternatingRowColors(False)
         self.view.setShowGrid(False)
-        self.view.verticalHeader().setDefaultSectionSize(44)
+        # Fusion ignora el padding de QTableView::item; la altura real sale de aqui.
+        self.view.verticalHeader().setDefaultSectionSize(52)
         self.view.doubleClicked.connect(self._emit_activated)
 
         header = self.view.horizontalHeader()

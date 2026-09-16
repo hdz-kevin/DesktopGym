@@ -18,8 +18,9 @@ from gym.domain.money import format_money
 from gym.services import products as service
 from gym.services.errors import ServiceError, ValidationError
 from gym.ui.main_window import Page
-from gym.ui.theme import DANGER, TEXT_MUTED, WARNING
+from gym.ui.theme import DANGER, SUCCESS, TEXT_MUTED, WARNING
 from gym.ui.widgets.common import (
+    ControlsRow,
     FilterChips,
     PageHeader,
     StatCard,
@@ -164,8 +165,7 @@ class ProductsPage(Page):
         )
         self.chips.changed.connect(self._on_filter)
 
-        controls = QHBoxLayout()
-        controls.setSpacing(12)
+        controls = ControlsRow()
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Editar", self.edit_selected))
@@ -193,7 +193,7 @@ class ProductsPage(Page):
                     "Estado",
                     lambda p: "Activo" if p.is_active else "Inactivo",
                     width=120,
-                    color=lambda p: None if p.is_active else TEXT_MUTED,
+                    color=lambda p: SUCCESS if p.is_active else TEXT_MUTED,
                 ),
             ],
             page_size=25,

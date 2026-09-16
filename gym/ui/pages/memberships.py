@@ -14,6 +14,7 @@ from gym.ui.dialogs.membership_history import MembershipHistoryDialog
 from gym.ui.main_window import Page
 from gym.ui.theme import DANGER, SUCCESS
 from gym.ui.widgets.common import (
+    ControlsRow,
     FilterChips,
     PageHeader,
     StatCard,
@@ -72,8 +73,7 @@ class MembershipsPage(Page):
         self.chips = FilterChips(FILTERS)
         self.chips.changed.connect(self._on_filter)
 
-        controls = QHBoxLayout()
-        controls.setSpacing(12)
+        controls = ControlsRow()
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Renovar", self.renew_selected))

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -15,46 +14,27 @@ from PySide6.QtWidgets import (
 
 from gym.data.models import Member
 from gym.domain.dates import format_date
-from gym.ui.pages.helpers import avatar_pixmap
-from gym.ui.theme import TEXT_MUTED
+from gym.ui.pages.helpers import slot_pixmap
 from gym.ui.widgets.common import Card, secondary_button, status_badge
+
+PHOTO_SIZE = 200
 
 
 class MemberProfileDialog(QDialog):
     def __init__(self, member: Member, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("memberProfile")
         self.setWindowTitle(f"Socio · {member.name}")
         self.setModal(True)
-        self.setMinimumWidth(460)
+        self.setMinimumWidth(600)
 
-        avatar = QLabel(self)
-        avatar.setFixedSize(88, 88)
-        avatar.setPixmap(avatar_pixmap(member.photo, member.initials, size=88))
-
-        name = QLabel(member.name, self)
-        name_font = QFont()
-        name_font.setPointSize(16)
-        name_font.setBold(True)
-        name.setFont(name_font)
-        name.setWordWrap(True)
-
-        code = QLabel(f"Código {member.code}", self)
-        code.setStyleSheet(f"color: {TEXT_MUTED};")
-
-        heading_text = QVBoxLayout()
-        heading_text.setSpacing(4)
-        heading_text.addWidget(name)
-        heading_text.addWidget(code)
-        heading_text.addWidget(status_badge(member.status), alignment=Qt.AlignmentFlag.AlignLeft)
-        heading_text.addStretch(1)
-
-        heading = QHBoxLayout()
-        heading.setSpacing(16)
-        heading.addWidget(avatar, alignment=Qt.AlignmentFlag.AlignTop)
-        heading.addLayout(heading_text, 1)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        buttons.addWidget(secondary_button("Cerrar", self.accept))
 
         details = QFormLayout()
-        details.setSpacing(8)
+        details.setVerticalSpacing(14)
+        details.setHorizontalSpacing(16)
         details.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         details.addRow(self._label("Género"), QLabel(member.gender.label(), self))
         details.addRow(
@@ -72,13 +52,44 @@ class MemberProfileDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
-        layout.addLayout(heading)
-        layout.addWidget(details_card)
 
-        close_row = QHBoxLayout()
-        close_row.addStretch(1)
-        close_row.addWidget(secondary_button("Cerrar", self.accept))
-        layout.addLayout(close_row)
+        body = QVBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(20)
+        body.addWidget(self._heading(member))
+        body.addWidget(details_card)
+
+        layout.addLayout(body, 1)
+        layout.addLayout(buttons)
+
+    def _heading(self, member: Member) -> QWidget:
+        box = QWidget(self)
+        box.setObjectName("memberHeading")
+        row = QHBoxLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(18)
+
+        avatar = QLabel(box)
+        avatar.setFixedSize(PHOTO_SIZE, PHOTO_SIZE)
+        avatar.setPixmap(slot_pixmap(member.photo, member.initials, size=PHOTO_SIZE))
+
+        name = QLabel(member.name, box)
+        name.setObjectName("memberName")
+        name.setWordWrap(True)
+
+        code = QLabel(f"Código {member.code}", box)
+
+        text = QVBoxLayout()
+        text.setContentsMargins(0, 0, 0, 0)
+        text.setSpacing(14)
+        text.addWidget(name)
+        text.addWidget(code)
+        text.addWidget(status_badge(member.status), alignment=Qt.AlignmentFlag.AlignLeft)
+
+        row.addWidget(avatar, alignment=Qt.AlignmentFlag.AlignVCenter)
+        row.addLayout(text, 1)
+        row.setAlignment(text, Qt.AlignmentFlag.AlignVCenter)
+        return box
 
     def _label(self, text: str) -> QLabel:
         label = QLabel(text, self)

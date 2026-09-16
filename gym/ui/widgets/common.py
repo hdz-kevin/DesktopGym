@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -74,6 +75,8 @@ class FilterChips(QWidget):
         self._group.setExclusive(True)
         self._values: dict[QPushButton, object] = {}
 
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -86,7 +89,7 @@ class FilterChips(QWidget):
             button.setChecked(index == 0)
             self._values[button] = value
             self._group.addButton(button)
-            layout.addWidget(button)
+            layout.addWidget(button, 0, Qt.AlignmentFlag.AlignBottom)
 
         layout.addStretch(1)
         self._group.buttonClicked.connect(lambda button: self.changed.emit(self._values[button]))
@@ -102,6 +105,19 @@ class FilterChips(QWidget):
                 return
 
 
+class ControlsRow(QHBoxLayout):
+    """Busqueda, filtros y acciones alineados abajo, como align-items: end."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setSpacing(12)
+
+    def addWidget(self, widget, stretch: int = 0, alignment=None) -> None:
+        if alignment is None:
+            alignment = Qt.AlignmentFlag.AlignBottom
+        super().addWidget(widget, stretch, alignment)
+
+
 class PageHeader(QWidget):
     """Titulo, subtitulo y una zona de acciones a la derecha."""
 
@@ -112,7 +128,7 @@ class PageHeader(QWidget):
 
         text = QVBoxLayout()
         text.setContentsMargins(0, 0, 0, 0)
-        text.setSpacing(2)
+        text.setSpacing(4)
         text.addWidget(self.title_label)
 
         self.subtitle_label = QLabel(subtitle, self)

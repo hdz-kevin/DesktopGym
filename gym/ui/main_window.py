@@ -90,7 +90,7 @@ class Sidebar(QWidget):
         for item in NAV_ITEMS:
             if item.section != current_section:
                 current_section = item.section
-                header = QLabel(item.section.upper(), self)
+                header = QLabel(item.section, self)
                 header.setObjectName("sidebarSection")
                 layout.addWidget(header)
 

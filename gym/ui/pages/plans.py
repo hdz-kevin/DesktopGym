@@ -223,7 +223,7 @@ class PlansPage(Page):
         self.plans_table = PagedTable[Plan](
             columns=[
                 Column("Categoría", lambda d: d.plan_category.name, width=140),
-                Column("Plan", lambda d: d.name, stretch=True),
+                Column("Nombre", lambda d: d.name, stretch=True),
                 Column(
                     "Equivale a",
                     lambda d: f"{d.amount} {d.unit.label(d.amount)}",

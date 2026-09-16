@@ -15,6 +15,7 @@ from gym.ui.dialogs.member_profile import MemberProfileDialog
 from gym.ui.main_window import Page
 from gym.ui.theme import DANGER, SUCCESS, TEXT_MUTED
 from gym.ui.widgets.common import (
+    ControlsRow,
     FilterChips,
     PageHeader,
     StatCard,
@@ -72,8 +73,7 @@ class MembersPage(Page):
         self.chips = FilterChips(FILTERS)
         self.chips.changed.connect(self._on_filter)
 
-        controls = QHBoxLayout()
-        controls.setSpacing(12)
+        controls = ControlsRow()
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Editar", self.edit_selected))
@@ -93,7 +93,7 @@ class MembersPage(Page):
                 Column(
                     "Estado",
                     lambda m: m.status.label(),
-                    width=120,
+                    width=140,
                     color=lambda m: STATUS_COLORS.get(m.status),
                 ),
             ],

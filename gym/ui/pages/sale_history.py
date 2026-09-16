@@ -12,7 +12,13 @@ from gym.services import sales as service
 from gym.services.visits import VisitRange
 from gym.ui.dialogs.sale_detail import SaleDetailDialog
 from gym.ui.main_window import Page
-from gym.ui.widgets.common import FilterChips, PageHeader, StatCard, secondary_button
+from gym.ui.widgets.common import (
+    ControlsRow,
+    FilterChips,
+    PageHeader,
+    StatCard,
+    secondary_button,
+)
 from gym.ui.widgets.table import Column, PagedTable
 
 RANGES = [
@@ -43,8 +49,7 @@ class SalesHistoryPage(Page):
         self.chips = FilterChips(RANGES)
         self.chips.changed.connect(self._on_range)
 
-        controls = QHBoxLayout()
-        controls.setSpacing(12)
+        controls = ControlsRow()
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Ver detalle", self.open_detail))
 

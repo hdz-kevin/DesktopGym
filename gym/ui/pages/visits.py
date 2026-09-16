@@ -22,6 +22,7 @@ from gym.services.errors import ServiceError
 from gym.services.visits import VisitRange
 from gym.ui.main_window import Page
 from gym.ui.widgets.common import (
+    ControlsRow,
     FilterChips,
     PageHeader,
     StatCard,
@@ -130,8 +131,7 @@ class VisitsPage(Page):
         self.chips = FilterChips(FILTERS)
         self.chips.changed.connect(self._on_range)
 
-        controls = QHBoxLayout()
-        controls.setSpacing(12)
+        controls = ControlsRow()
         controls.addWidget(self.chips, 1)
         controls.addWidget(primary_button("Registrar visita", self.create_visit))
 
