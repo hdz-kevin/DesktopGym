@@ -11,6 +11,15 @@ from gym.ui.theme import NEUTRAL_BG, TEXT
 
 def avatar_pixmap(photo_name: str | None, initials: str, size: int = 48) -> QPixmap:
     """Foto recortada en circulo o, si no hay, un circulo gris con las iniciales."""
+    return _photo_pixmap(photo_name, initials, size, circle=True)
+
+
+def slot_pixmap(photo_name: str | None, initials: str, size: int = 340) -> QPixmap:
+    """Foto que llena el recuadro redondeado del kiosco."""
+    return _photo_pixmap(photo_name, initials, size, circle=False)
+
+
+def _photo_pixmap(photo_name: str | None, initials: str, size: int, *, circle: bool) -> QPixmap:
     canvas = QPixmap(size, size)
     canvas.fill(Qt.GlobalColor.transparent)
 
@@ -18,7 +27,10 @@ def avatar_pixmap(photo_name: str | None, initials: str, size: int = 48) -> QPix
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
     path = QPainterPath()
-    path.addEllipse(0, 0, size, size)
+    if circle:
+        path.addEllipse(0, 0, size, size)
+    else:
+        path.addRoundedRect(0, 0, size, size, 12, 12)
     painter.setClipPath(path)
 
     source = photo_path(photo_name)

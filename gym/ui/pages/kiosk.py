@@ -24,7 +24,7 @@ from gym.config import Settings
 from gym.domain.dates import format_date
 from gym.services.checkin import CODE_LENGTH, CheckInResult, verify_code
 from gym.ui.main_window import Page
-from gym.ui.pages.helpers import avatar_pixmap
+from gym.ui.pages.helpers import slot_pixmap
 from gym.ui.theme import DANGER, SUCCESS, TEXT, TEXT_MUTED
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 RESULT_HOLD_MS = 1000 * 10
 PILL_WIDTH = 400
 PILL_HEIGHT = 64
-PHOTO_SIZE = 340
-CENTER_WIDTH = 740
+PHOTO_SIZE = 400
+CENTER_WIDTH = 780
 _WEEKDAYS = (
     "Lunes",
     "Martes",
@@ -293,7 +293,7 @@ class KioskPage(Page):
             self.result_detail.hide()
         else:
             self.photo_slot.setPixmap(
-                avatar_pixmap(result.member.photo, result.member.initials, size=PHOTO_SIZE)
+                slot_pixmap(result.member.photo, result.member.initials, size=PHOTO_SIZE)
             )
             self.result_name.setText(result.member_name)
             self.result_name.setVisible(bool(result.member_name))
