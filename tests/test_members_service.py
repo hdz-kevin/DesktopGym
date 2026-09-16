@@ -170,7 +170,7 @@ class TestEditarYBorrar:
         member_id = alta()
         dar_membresia(member_id, app_catalog["monthly_id"], app_catalog["category_id"], 10)
 
-        with pytest.raises(ServiceError, match="historial"):
+        with pytest.raises(ServiceError, match="membresía"):
             service.delete_member(member_id)
 
     def test_editar_socio_inexistente(self, app_db):

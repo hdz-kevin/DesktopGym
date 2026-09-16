@@ -205,7 +205,7 @@ class TestCatalogoDePrecios:
 
     def test_no_borra_una_categoria_en_uso(self, app_db, app_catalog):
         service.create_membership(alta(), app_catalog["monthly_id"])
-        with pytest.raises(ServiceError, match="membresías registradas"):
+        with pytest.raises(ServiceError, match="membresías asignadas"):
             service.delete_plan_category(app_catalog["category_id"])
 
     def test_borra_una_categoria_sin_uso(self, app_db):
