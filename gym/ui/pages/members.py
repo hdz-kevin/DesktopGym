@@ -1,4 +1,4 @@
-"""Pantalla de socios: alta, edicion, filtros y perfil."""
+"""Pantalla de socios: ficha, cobro, historial y filtros."""
 
 from __future__ import annotations
 
@@ -7,13 +7,17 @@ import logging
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from gym.data.models import Member
+from gym.domain.dates import humanize_delta
 from gym.domain.enums import MemberStatus
 from gym.services import members as service
+from gym.services import plans as plans_service
 from gym.services.errors import ServiceError
+from gym.ui.dialogs.charge_form import ChargeDialog
 from gym.ui.dialogs.member_form import MemberFormDialog
 from gym.ui.dialogs.member_profile import MemberProfileDialog
+from gym.ui.dialogs.payment_history import PaymentHistoryDialog
 from gym.ui.main_window import Page
-from gym.ui.theme import DANGER, SUCCESS, TEXT_MUTED
+from gym.ui.theme import DANGER, SUCCESS
 from gym.ui.widgets.common import (
     ControlsRow,
     FilterChips,
@@ -32,15 +36,28 @@ logger = logging.getLogger(__name__)
 STATUS_COLORS = {
     MemberStatus.ACTIVE: SUCCESS,
     MemberStatus.EXPIRED: DANGER,
-    MemberStatus.NO_MEMBERSHIP: TEXT_MUTED,
 }
 
 FILTERS: list[tuple[MemberStatus | None, str]] = [
     (None, "Todos"),
     (MemberStatus.ACTIVE, "Activos"),
     (MemberStatus.EXPIRED, "Vencidos"),
-    (MemberStatus.NO_MEMBERSHIP, "Sin membresía"),
 ]
+
+
+def _expiry_text(member: Member) -> str:
+    payment = member.recent_payment
+    if payment is None:
+        return "—"
+    delta = humanize_delta(payment.end_date)
+    if member.status is MemberStatus.ACTIVE:
+        return f"en {delta}"
+    return f"hace {delta}"
+
+
+def _plan_name(member: Member) -> str:
+    plan = member.current_plan
+    return plan.name if plan else "—"
 
 
 class MembersPage(Page):
@@ -52,19 +69,16 @@ class MembersPage(Page):
         self._search = ""
         self._status: MemberStatus | None = None
 
-        header = PageHeader("Socios", "Registro y gestión de los socios del gimnasio")
+        header = PageHeader("Socios", "Ficha, cobros y vigencia de los socios del gimnasio")
 
         self.stat_total = StatCard("Total")
         self.stat_active = StatCard("Activos")
         self.stat_expired = StatCard("Vencidos")
-        self.stat_none = StatCard("Sin membresía")
 
         stats = QHBoxLayout()
         stats.setSpacing(12)
-        for card in (self.stat_total, self.stat_active, self.stat_expired, self.stat_none):
+        for card in (self.stat_total, self.stat_active, self.stat_expired):
             stats.addWidget(card)
-        # add margin bottom to the stats layout
-        # stats.setContentsMargins(0, 0, 0, 10)
 
         self.search_box = SearchBox("Buscar por nombre o código...")
         self.search_box.setFixedWidth(320)
@@ -78,22 +92,21 @@ class MembersPage(Page):
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Editar", self.edit_selected))
         controls.addWidget(danger_button("Eliminar", self.delete_selected))
+        controls.addWidget(secondary_button("Historial", self.show_history))
+        controls.addWidget(primary_button("Cobrar", self.charge_selected))
         controls.addWidget(primary_button("Nuevo socio", self.create_member))
 
         self.table = PagedTable[Member](
             columns=[
                 Column("Código", lambda m: m.code, width=90),
                 Column("Nombre", lambda m: m.name, stretch=True),
-                Column(
-                    "Edad",
-                    lambda m: m.age if m.age is not None else "—",
-                    width=90,
-                ),
-                Column("Género", lambda m: m.gender.label(), width=120),
+                Column("Categoría", lambda m: m.plan_category.name, width=130),
+                Column("Plan", _plan_name, width=130),
+                Column("Vigencia", _expiry_text, width=160),
                 Column(
                     "Estado",
                     lambda m: m.status.label(),
-                    width=140,
+                    width=110,
                     color=lambda m: STATUS_COLORS.get(m.status),
                 ),
             ],
@@ -128,7 +141,6 @@ class MembersPage(Page):
         self.stat_total.set_value(str(stats.total))
         self.stat_active.set_value(str(stats.active))
         self.stat_expired.set_value(str(stats.expired))
-        self.stat_none.set_value(str(stats.without_membership))
 
     def _on_search(self, text: str) -> None:
         self._search = text
@@ -141,6 +153,9 @@ class MembersPage(Page):
         self.load()
 
     def create_member(self) -> None:
+        if not plans_service.list_plan_categories():
+            self.window_ref.notify_error("Primero configura categorías en Planes (F4).")
+            return
         dialog = MemberFormDialog(self)
         if dialog.exec():
             self.window_ref.notify_success("Socio registrado correctamente.")
@@ -154,6 +169,26 @@ class MembersPage(Page):
         if dialog.exec():
             self.window_ref.notify_success("Socio actualizado.")
             self.refresh()
+
+    def charge_selected(self) -> None:
+        member = self._require_selection()
+        if member is None:
+            return
+        if not plans_service.list_plans(member.plan_category_id):
+            self.window_ref.notify_error(
+                "Esta categoría no tiene planes. Configúralos en Planes (F4)."
+            )
+            return
+        dialog = ChargeDialog(member, self)
+        if dialog.exec():
+            self.window_ref.notify_success("Pago registrado.")
+            self.refresh()
+
+    def show_history(self) -> None:
+        member = self._require_selection()
+        if member is None:
+            return
+        PaymentHistoryDialog(member.id, self).exec()
 
     def _show_profile(self, member: Member) -> None:
         MemberProfileDialog(member, self).exec()

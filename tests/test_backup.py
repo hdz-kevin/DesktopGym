@@ -12,6 +12,7 @@ from gym.services import backup as service
 from gym.services import members as members_service
 from gym.ui.main_window import MainWindow
 from gym.ui.pages.settings import SettingsPage
+from tests.conftest import default_category_id
 
 
 @pytest.fixture
@@ -23,7 +24,11 @@ def window(qtbot, app_db):
 
 def alta(nombre="Ana Lopez") -> int:
     return members_service.create_member(
-        members_service.MemberForm(name=nombre, gender=MemberGender.FEMALE)
+        members_service.MemberForm(
+            name=nombre,
+            gender=MemberGender.FEMALE,
+            plan_category_id=default_category_id(),
+        )
     )
 
 

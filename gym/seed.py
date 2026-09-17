@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
             "Listo. Datos de prueba en:\n"
             f"  {path}\n\n"
             f"  {summary.members} socios\n"
-            f"  {summary.memberships} membresías\n"
+            f"  {summary.payments} pagos\n"
             f"  {summary.visits} visitas\n"
             f"  {summary.products} productos\n"
             f"  {summary.sales} ventas"

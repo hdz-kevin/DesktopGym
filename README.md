@@ -11,15 +11,14 @@ superior de este repositorio.
 | Módulo | Atajo | Descripción |
 |---|---|---|
 | Bienvenida | `F1` | El socio teclea su código y el sistema le dice si puede pasar |
-| Socios | `F2` | Alta, edición, foto, búsqueda y filtros por estado |
-| Membresías | `F3` | Altas, renovaciones e historial de pagos |
-| Visitas | `F4` | Entradas sueltas de quienes no son socios |
-| Precios | `F5` | Categorías de planes y sus planes |
-| Corte de caja | `F6` | Ingresos del día, la semana o el mes por concepto |
+| Socios | `F2` | Ficha, cobros, vigencia e historial de pagos |
+| Visitas | `F3` | Entradas sueltas de quienes no son socios |
+| Planes | `F4` | Categorías y planes de precios |
+| Corte de caja | `F5` | Ingresos del día, la semana o el mes por concepto |
+| Productos | `F6` | Catálogo e inventario de la tienda |
 | Punto de venta | `F7` | Cobro de productos de la tienda |
 | Historial | `F8` | Tickets de ventas de la tienda |
-| Productos | `F9` | Catálogo e inventario de la tienda |
-| Ajustes | `F10` | Datos del gimnasio y respaldos |
+| Ajustes | `F9` | Datos del gimnasio y respaldos |
 
 `Ctrl+R` recarga la pantalla actual.
 
@@ -65,7 +64,7 @@ volverla al catálogo inicial de precios:
 
 ```bash
 uv run python -m gym.seed seed     # socios, visitas, productos y ventas
-uv run python -m gym.seed reset    # solo membresías General y Estudiante
+uv run python -m gym.seed reset    # solo categorias General y Estudiante
 ```
 
 Cierra la aplicación antes. Pide confirmación; `--yes` la omite. Los respaldos
@@ -96,7 +95,7 @@ packaging/      recetas de compilación e instalador
 - **El dinero se guarda en centavos enteros.** Sumar `0.1 + 0.2` en coma
   flotante no da `0.3`, y en una caja eso se acumula.
 - **Los estados no se guardan, se calculan.** Que un socio esté activo depende
-  de si alguno de sus periodos sigue vigente. Guardarlo en una columna obligaría
+  de si alguno de sus pagos sigue vigente. Guardarlo en una columna obligaría
   a una tarea programada que puede fallar y dejar a un socio marcado como activo
   después de vencer. Se implementan como `hybrid_property`, que funciona igual
   en Python y dentro de las consultas SQL.

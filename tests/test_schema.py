@@ -6,7 +6,8 @@ from alembic import command
 
 from gym.data import database
 from gym.data.schema import _alembic_config
-from gym.services import memberships as memberships_service
+from gym.services import members as members_service
+from gym.services import plans as plans_service
 
 
 def _upgrade(engine, config, revision: str) -> None:
@@ -55,16 +56,16 @@ def test_renombra_el_catalogo_sin_perder_datos(tmp_path, monkeypatch):
 
     _upgrade(engine, config, "head")
 
-    categories = memberships_service.list_plan_categories()
-    plans = memberships_service.list_plans()
-    membership = memberships_service.get_membership(1)
+    categories = plans_service.list_plan_categories()
+    plans = plans_service.list_plans()
+    member = members_service.get_member(1)
 
     assert [c.name for c in categories] == ["General"]
     assert [(p.plan_category.name, p.name, p.price_cents) for p in plans] == [
         ("General", "Mensual", 40000)
     ]
-    assert membership.plan_category.name == "General"
-    assert membership.payments[0].plan.name == "Mensual"
+    assert member.plan_category.name == "General"
+    assert member.payments[0].plan.name == "Mensual"
 
     with engine.connect() as connection:
         tables = {
@@ -76,7 +77,7 @@ def test_renombra_el_catalogo_sin_perder_datos(tmp_path, monkeypatch):
     assert "plan_categories" in tables
     assert "plans" in tables
     assert "payments" in tables
-    assert "membership_types" not in tables
+    assert "memberships" not in tables
     assert "durations" not in tables
     assert "periods" not in tables
 

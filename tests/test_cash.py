@@ -12,7 +12,7 @@ from gym.data.models import Payment
 from gym.domain.enums import MemberGender
 from gym.services import cash as service
 from gym.services import members as members_service
-from gym.services import memberships as memberships_service
+from gym.services import payments as payments_service
 from gym.services import products as products_service
 from gym.services import sales as sales_service
 from gym.services import visits as visits_service
@@ -20,6 +20,7 @@ from gym.services.sales import Cart
 from gym.services.visits import VisitRange
 from gym.ui.main_window import MainWindow
 from gym.ui.pages.cash import CashPage
+from tests.conftest import default_category_id
 
 
 @pytest.fixture
@@ -31,7 +32,11 @@ def window(qtbot, app_db):
 
 def alta(nombre="Ana Lopez") -> int:
     return members_service.create_member(
-        members_service.MemberForm(name=nombre, gender=MemberGender.FEMALE)
+        members_service.MemberForm(
+            name=nombre,
+            gender=MemberGender.FEMALE,
+            plan_category_id=default_category_id(),
+        )
     )
 
 
@@ -73,7 +78,7 @@ class TestReporte:
         assert reporte.sales.revenue_cents == 3000
 
     def test_un_alta_cuenta_como_nueva(self, app_db, app_catalog):
-        memberships_service.create_membership(alta(), app_catalog["monthly_id"])
+        payments_service.charge(alta(), app_catalog["monthly_id"])
 
         reporte = service.build_report(VisitRange.TODAY)
         assert reporte.new_memberships.count == 1
@@ -81,8 +86,9 @@ class TestReporte:
         assert reporte.renewals.count == 0
 
     def test_el_segundo_pago_cuenta_como_renovacion(self, app_db, app_catalog):
-        membership_id = memberships_service.create_membership(alta(), app_catalog["monthly_id"])
-        memberships_service.renew_membership(membership_id, app_catalog["biweekly_id"])
+        member_id = alta()
+        payments_service.charge(member_id, app_catalog["monthly_id"])
+        payments_service.charge(member_id, app_catalog["biweekly_id"])
 
         reporte = service.build_report(VisitRange.TODAY)
         assert reporte.new_memberships.count == 1
@@ -91,17 +97,18 @@ class TestReporte:
         assert reporte.renewals.revenue_cents == 25000
 
     def test_varias_renovaciones(self, app_db, app_catalog):
-        membership_id = memberships_service.create_membership(alta(), app_catalog["monthly_id"])
-        memberships_service.renew_membership(membership_id, app_catalog["monthly_id"])
-        memberships_service.renew_membership(membership_id, app_catalog["monthly_id"])
+        member_id = alta()
+        payments_service.charge(member_id, app_catalog["monthly_id"])
+        payments_service.charge(member_id, app_catalog["monthly_id"])
+        payments_service.charge(member_id, app_catalog["monthly_id"])
 
         reporte = service.build_report(VisitRange.TODAY)
         assert reporte.new_memberships.count == 1
         assert reporte.renewals.count == 2
 
     def test_dos_socios_distintos_son_dos_altas(self, app_db, app_catalog):
-        memberships_service.create_membership(alta("Ana"), app_catalog["monthly_id"])
-        memberships_service.create_membership(alta("Beto"), app_catalog["monthly_id"])
+        payments_service.charge(alta("Ana"), app_catalog["monthly_id"])
+        payments_service.charge(alta("Beto"), app_catalog["monthly_id"])
 
         reporte = service.build_report(VisitRange.TODAY)
         assert reporte.new_memberships.count == 2
@@ -110,8 +117,9 @@ class TestReporte:
     def test_total_suma_todos_los_conceptos(self, app_db, app_catalog):
         visits_service.create_visit(4000)
         vender(precio=1500, cantidad=2)
-        membership_id = memberships_service.create_membership(alta(), app_catalog["monthly_id"])
-        memberships_service.renew_membership(membership_id, app_catalog["biweekly_id"])
+        member_id = alta()
+        payments_service.charge(member_id, app_catalog["monthly_id"])
+        payments_service.charge(member_id, app_catalog["biweekly_id"])
 
         reporte = service.build_report(VisitRange.TODAY)
 
@@ -122,7 +130,7 @@ class TestReporte:
     def test_lo_de_hoy_no_incluye_lo_viejo(self, app_db, app_catalog):
         visits_service.create_visit(4000, datetime.now() - timedelta(days=40))
         vender(cuando=datetime.now() - timedelta(days=40))
-        memberships_service.create_membership(alta(), app_catalog["monthly_id"])
+        payments_service.charge(alta(), app_catalog["monthly_id"])
         antedatar_pagos(40)
 
         reporte = service.build_report(VisitRange.TODAY)
@@ -171,19 +179,20 @@ class TestReporte:
 class TestPantalla:
     def test_muestra_los_totales(self, qtbot, window, app_catalog):
         visits_service.create_visit(4000)
-        memberships_service.create_membership(alta(), app_catalog["monthly_id"])
+        payments_service.charge(alta(), app_catalog["monthly_id"])
 
         page = CashPage(window)
         qtbot.addWidget(page)
         page.refresh()
 
         assert page.stat_total.value_label.text() == "$440.00"
-        assert page.stat_memberships.value_label.text() == "$400.00"
+        assert page.stat_payments.value_label.text() == "$400.00"
         assert page.stat_visits.value_label.text() == "$40.00"
 
     def test_distingue_altas_de_renovaciones(self, qtbot, window, app_catalog):
-        membership_id = memberships_service.create_membership(alta(), app_catalog["monthly_id"])
-        memberships_service.renew_membership(membership_id, app_catalog["biweekly_id"])
+        member_id = alta()
+        payments_service.charge(member_id, app_catalog["monthly_id"])
+        payments_service.charge(member_id, app_catalog["biweekly_id"])
 
         page = CashPage(window)
         qtbot.addWidget(page)

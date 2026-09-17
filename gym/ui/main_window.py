@@ -35,15 +35,14 @@ class NavItem:
 
 NAV_ITEMS = [
     NavItem("kiosk", "Bienvenida", "F1", "Principal"),
-    NavItem("memberships", "Membresías", "F2", "Principal"),
+    NavItem("members", "Socios", "F2", "Principal"),
     NavItem("visits", "Visitas", "F3", "Principal"),
-    NavItem("members", "Socios", "F4", "Principal"),
-    NavItem("plans", "Planes", "F5", "Principal"),
-    NavItem("cash", "Corte de caja", "F6", "Principal"),
-    NavItem("products", "Productos", "F7", "Tienda"),
-    NavItem("sales", "Punto de venta", "F8", "Tienda"),
-    NavItem("sale_history", "Historial de ventas", "F9", "Tienda"),
-    NavItem("settings", "Ajustes", "F10", "Sistema"),
+    NavItem("plans", "Planes", "F4", "Principal"),
+    NavItem("cash", "Corte de caja", "F5", "Principal"),
+    NavItem("products", "Productos", "F6", "Tienda"),
+    NavItem("sales", "Punto de venta", "F7", "Tienda"),
+    NavItem("sale_history", "Historial de ventas", "F8", "Tienda"),
+    NavItem("settings", "Ajustes", "F9", "Sistema"),
 ]
 
 
@@ -105,7 +104,7 @@ class Sidebar(QWidget):
 
         layout.addStretch(1)
 
-        hint = QLabel("F1-F10 para navegar", self)
+        hint = QLabel("F1-F9 para navegar", self)
         hint.setObjectName("navShortcut")
         hint.setContentsMargins(6, 0, 6, 0)
         layout.addWidget(hint)

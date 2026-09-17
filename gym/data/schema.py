@@ -80,8 +80,7 @@ def populate_seed_catalog(session) -> None:
 def seed_catalog() -> None:
     """Crea categorias de planes y planes si el catalogo esta vacio.
 
-    Sin esto la primera alta de membresia seria imposible: no habria ningun
-    precio para elegir.
+    Sin esto el primer cobro seria imposible: no habria ningun precio para elegir.
     """
     with session_scope() as session:
         if session.scalar(select(PlanCategory).limit(1)) is not None:

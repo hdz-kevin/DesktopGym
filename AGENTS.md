@@ -21,7 +21,7 @@ uv sync --all-extras                  # instalar dependencias (requiere uv)
 uv run python -m gym                  # ejecutar la aplicación
 uv run python -m gym.seed seed        # llena la base del usuario con datos de prueba
 uv run python -m gym.seed reset       # deja solo el catalogo inicial de precios
-uv run pytest                         # 339 pruebas, ~3 s
+uv run pytest                         # 383 pruebas, ~3 s
 uv run ruff check . && uv run ruff format .
 uv run python packaging/build.py      # compilar el ejecutable a dist/
 uv run python packaging/screenshots.py screenshots   # render de cada pantalla a PNG
@@ -50,10 +50,9 @@ que un servicio ya cargó. **Si en `gym/ui/` aparece un `session_scope()` o un
 `select()`, la lógica está en el lugar equivocado**: muévela a un servicio.
 
 Como los servicios cierran la sesión antes de devolver, cada uno precarga con
-`selectinload` lo que la interfaz va a leer (ver `_eager()` en `members.py` y
-`memberships.py`). Si agregas un acceso a relación en una pantalla y salta
-`DetachedInstanceError`, la solución es ampliar ese `_eager()`, no abrir una
-sesión desde la interfaz.
+`selectinload` lo que la interfaz va a leer (ver `_eager()` en `members.py`).
+Si agregas un acceso a relación en una pantalla y salta `DetachedInstanceError`,
+la solución es ampliar ese `_eager()`, no abrir una sesión desde la interfaz.
 
 El motor es global y se inicializa una sola vez en el arranque
 (`init_engine()`); `session_scope()` lo resuelve. SQLite va en modo WAL con
@@ -68,11 +67,15 @@ que un gimnasio nota:
 - **El dinero se guarda siempre en centavos enteros** (`price_cents`,
   `total_cents`, `subtotal_cents`). Nunca `float`, nunca `Decimal` en la base.
   Convierte con `gym.domain.money` (`to_cents`, `to_pesos`, `format_money`).
-- **Los estados no se guardan, se calculan.** `Member.status` y
-  `Membership.status` son `hybrid_property`: la misma regla corre en Python
-  y dentro de un `WHERE` de SQL. No agregues una columna `status`; el sistema
-  viejo lo hizo y dependía de una tarea programada que al fallar dejaba socios
-  vencidos marcados como activos. Un `Payment` no tiene estado: ya se cobró.
+- **Los estados no se guardan, se calculan.** `Member.status` es un
+  `hybrid_property`: activo si algun pago tiene `end_date` vigente, si no
+  vencido (tambien quien nunca pago). La misma regla corre en Python y dentro
+  de un `WHERE` de SQL. No agregues una columna `status`; el sistema viejo lo
+  hizo y dependia de una tarea programada que al fallar dejaba socios vencidos
+  marcados como activos. Un `Payment` no tiene estado: ya se cobro.
+- **El socio tiene categoria** (`plan_category_id`). Los planes del cobro son
+  los de esa categoria. Cambiarla no reescribe pagos viejos: el historial
+  conserva el `plan_id` cobrado.
 - **Los pagos vencen al final del día.** El socio conserva el último día
   completo. Usa los helpers de `gym.domain.dates`, no `datetime` a pelo.
 - **Sumar meses recorta al último día válido**: 31 de enero + 1 mes vence el 28
@@ -132,7 +135,8 @@ usan clases de servicio.
 ## Estado y límites
 
 Funciona de punta a punta: los diez módulos están implementados y probados, y
-el ejecutable arranca en una máquina sin Python. Lo que **no** tiene, por
+el ejecutable arranca en una máquina sin Python. Los nueve módulos están
+implementados y probados. Lo que **no** tiene, por
 decisión de alcance: no hay usuarios ni inicio de sesión (la PC de recepción es
 de una sola persona), no hay sincronización entre computadoras, no hay impresión
 de tickets y el instalador solo se puede generar desde Windows, porque Inno

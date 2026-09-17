@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from gym.data.models import Plan, PlanCategory
 from gym.domain.enums import DurationUnit
 from gym.domain.money import format_money
-from gym.services import memberships as service
+from gym.services import plans as service
 from gym.services.errors import ServiceError, ValidationError
 from gym.ui.main_window import Page
 from gym.ui.widgets.common import (
@@ -191,7 +191,7 @@ class PlansPage(Page):
         super().__init__(window)
         self.window_ref = window
 
-        header = PageHeader("Planes", "Organiza los planes de membresía por categorías")
+        header = PageHeader("Planes", "Organiza los planes por categorías")
 
         # Categories table
         self.categories_table = PagedTable[PlanCategory](

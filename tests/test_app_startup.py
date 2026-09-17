@@ -11,7 +11,7 @@ import pytest
 from gym.__main__ import build_window
 from gym.config import Settings
 from gym.data.schema import seed_catalog
-from gym.services import memberships as memberships_service
+from gym.services import plans as plans_service
 from gym.ui.main_window import NAV_ITEMS
 
 
@@ -44,10 +44,10 @@ def test_todas_las_paginas_se_actualizan_sin_error(app_window):
 
 
 def test_la_semilla_deja_precios_listos(app_db):
-    """Al primer arranque debe poder venderse una membresía sin configurar nada."""
+    """Al primer arranque debe poder cobrarse un plan sin configurar nada."""
     seed_catalog()
-    categorias = memberships_service.list_plan_categories()
-    planes = memberships_service.list_plans()
+    categorias = plans_service.list_plan_categories()
+    planes = plans_service.list_plans()
 
     assert len(categorias) >= 1
     assert len(planes) >= 1
@@ -56,17 +56,17 @@ def test_la_semilla_deja_precios_listos(app_db):
 
 def test_sembrar_dos_veces_no_duplica(app_db):
     seed_catalog()
-    primera = len(memberships_service.list_plan_categories())
+    primera = len(plans_service.list_plan_categories())
     seed_catalog()
 
-    assert len(memberships_service.list_plan_categories()) == primera
+    assert len(plans_service.list_plan_categories()) == primera
 
 
 def test_la_semilla_respeta_un_catalogo_existente(app_db):
-    memberships_service.create_plan_category("Solo el mío")
+    plans_service.create_plan_category("Solo el mío")
     seed_catalog()
 
-    tipos = [t.name for t in memberships_service.list_plan_categories()]
+    tipos = [t.name for t in plans_service.list_plan_categories()]
     assert tipos == ["Solo el mío"]
 
 

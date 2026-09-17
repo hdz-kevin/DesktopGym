@@ -5,16 +5,21 @@ from datetime import datetime, timedelta
 import pytest
 
 from gym.data.database import session_scope
-from gym.data.models import Membership, Payment
+from gym.data.models import Payment
 from gym.domain.dates import humanize_delta
 from gym.domain.enums import MemberGender
 from gym.services import members as members_service
 from gym.services.checkin import verify_code
+from tests.conftest import default_category_id
 
 
 def alta(nombre: str = "Ana Lopez") -> tuple[int, str]:
     member_id = members_service.create_member(
-        members_service.MemberForm(name=nombre, gender=MemberGender.FEMALE)
+        members_service.MemberForm(
+            name=nombre,
+            gender=MemberGender.FEMALE,
+            plan_category_id=default_category_id(),
+        )
     )
     return member_id, members_service.get_member(member_id).code
 
@@ -22,12 +27,9 @@ def alta(nombre: str = "Ana Lopez") -> tuple[int, str]:
 def dar_periodo(member_id: int, catalog: dict, dias_restantes: int) -> None:
     ahora = datetime.now()
     with session_scope() as session:
-        membership = Membership(member_id=member_id, plan_category_id=catalog["category_id"])
-        session.add(membership)
-        session.flush()
         session.add(
             Payment(
-                membership_id=membership.id,
+                member_id=member_id,
                 plan_id=catalog["monthly_id"],
                 start_date=ahora - timedelta(days=30),
                 end_date=ahora + timedelta(days=dias_restantes),
@@ -51,7 +53,7 @@ class TestCodigoInvalido:
 
 
 class TestAccesoConcedido:
-    def test_membresia_vigente(self, app_db, app_catalog):
+    def test_periodo_vigente(self, app_db, app_catalog):
         member_id, codigo = alta()
         dar_periodo(member_id, app_catalog, dias_restantes=12)
 
@@ -67,14 +69,9 @@ class TestAccesoConcedido:
         member_id, codigo = alta()
         ahora = datetime.now()
         with session_scope() as session:
-            membership = Membership(
-                member_id=member_id, plan_category_id=app_catalog["category_id"]
-            )
-            session.add(membership)
-            session.flush()
             session.add(
                 Payment(
-                    membership_id=membership.id,
+                    member_id=member_id,
                     plan_id=app_catalog["monthly_id"],
                     start_date=ahora - timedelta(days=30),
                     end_date=ahora.replace(hour=23, minute=59, second=59),
@@ -94,14 +91,9 @@ class TestAccesoConcedido:
         referencia = datetime.now()
         vencimiento = referencia + timedelta(days=12)
         with session_scope() as session:
-            membership = Membership(
-                member_id=member_id, plan_category_id=app_catalog["category_id"]
-            )
-            session.add(membership)
-            session.flush()
             session.add(
                 Payment(
-                    membership_id=membership.id,
+                    member_id=member_id,
                     plan_id=app_catalog["monthly_id"],
                     start_date=referencia - timedelta(days=30),
                     end_date=vencimiento,
@@ -116,38 +108,26 @@ class TestAccesoConcedido:
 
 
 class TestAccesoDenegado:
-    def test_socio_sin_membresia(self, app_db):
+    def test_socio_sin_pagos(self, app_db):
         _, codigo = alta()
         resultado = verify_code(codigo)
 
         assert not resultado.granted
-        assert "no tiene ninguna membresía" in resultado.message
-        assert resultado.detail == "No cuenta con ninguna membresía"
+        assert "no tiene un periodo vigente" in resultado.message
+        assert resultado.detail == "Sin pagos registrados"
         assert resultado.member is not None
 
-    def test_membresia_sin_pagos(self, app_db, app_catalog):
-        member_id, codigo = alta()
-        with session_scope() as session:
-            session.add(
-                Membership(member_id=member_id, plan_category_id=app_catalog["category_id"])
-            )
-
-        resultado = verify_code(codigo)
-
-        assert not resultado.granted
-        assert resultado.detail == "Sin pagos registrados."
-
-    def test_membresia_vencida_indica_la_fecha(self, app_db, app_catalog):
+    def test_periodo_vencido_indica_la_fecha(self, app_db, app_catalog):
         member_id, codigo = alta()
         dar_periodo(member_id, app_catalog, dias_restantes=-3)
 
         resultado = verify_code(codigo)
 
         assert not resultado.granted
-        assert resultado.message == "Membresía vencida."
+        assert "no tiene un periodo vigente" in resultado.message
         assert "Venció hace" in resultado.detail
 
-    def test_renovar_reactiva_el_acceso(self, app_db, app_catalog):
+    def test_cobrar_reactiva_el_acceso(self, app_db, app_catalog):
         member_id, codigo = alta()
         dar_periodo(member_id, app_catalog, dias_restantes=-3)
         assert not verify_code(codigo).granted

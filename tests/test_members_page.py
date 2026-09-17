@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt
 
 from gym.config import Settings
 from gym.data.database import session_scope
-from gym.data.models import Membership, Payment
+from gym.data.models import Payment
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.services import members as service
 from gym.ui.dialogs.camera_capture import (
@@ -25,28 +25,28 @@ from gym.ui.pages.kiosk import PHOTO_SIZE, RESULT_HOLD_MS, KioskPage, _clock_par
 from gym.ui.pages.members import MembersPage
 from gym.ui.theme import DANGER, SUCCESS, TEXT
 from gym.ui.widgets.feedback import Toast
+from tests.conftest import default_category_id
 
 
 @pytest.fixture
-def window(qtbot, app_db):
+def window(qtbot, app_db, app_catalog):
     window = MainWindow(Settings(gym_name="Gimnasio de Prueba"))
     qtbot.addWidget(window)
     return window
 
 
 def alta(nombre="Ana Lopez", gender=MemberGender.FEMALE) -> int:
-    return service.create_member(service.MemberForm(name=nombre, gender=gender))
+    return service.create_member(
+        service.MemberForm(name=nombre, gender=gender, plan_category_id=default_category_id())
+    )
 
 
 def dar_periodo(member_id: int, catalog: dict, dias: int) -> None:
     ahora = datetime.now()
     with session_scope() as session:
-        membership = Membership(member_id=member_id, plan_category_id=catalog["category_id"])
-        session.add(membership)
-        session.flush()
         session.add(
             Payment(
-                membership_id=membership.id,
+                member_id=member_id,
                 plan_id=catalog["monthly_id"],
                 start_date=ahora - timedelta(days=30),
                 end_date=ahora + timedelta(days=dias),
@@ -68,7 +68,7 @@ class TestMembersPage:
 
     def test_estadisticas_reflejan_los_estados(self, qtbot, window, app_catalog):
         activo = alta("Activo")
-        alta("Sin membresia")
+        alta("Sin pagos")
         dar_periodo(activo, app_catalog, dias=10)
 
         page = MembersPage(window)
@@ -77,7 +77,7 @@ class TestMembersPage:
 
         assert page.stat_total.value_label.text() == "2"
         assert page.stat_active.value_label.text() == "1"
-        assert page.stat_none.value_label.text() == "1"
+        assert page.stat_expired.value_label.text() == "1"
 
     def test_filtrar_por_activos(self, qtbot, window, app_catalog):
         activo = alta("Activo Ramirez")
@@ -291,12 +291,12 @@ class TestCamaraVirtual:
 
 
 class TestMemberProfileDialog:
-    def test_abre_para_socio_sin_membresia(self, qtbot, window):
+    def test_abre_para_socio_sin_pagos(self, qtbot, window):
         member = service.get_member(alta())
         dialog = MemberProfileDialog(member, window)
         qtbot.addWidget(dialog)
 
-    def test_abre_para_socio_con_membresia(self, qtbot, window, app_catalog):
+    def test_abre_para_socio_con_pago(self, qtbot, window, app_catalog):
         member_id = alta()
         dar_periodo(member_id, app_catalog, dias=10)
         dialog = MemberProfileDialog(service.get_member(member_id), window)
@@ -334,7 +334,7 @@ class TestKioskPage:
         assert not page.photo_slot.pixmap().isNull()
         assert SUCCESS in page.result_name.styleSheet()
 
-    def test_membresia_vencida_niega_el_paso(self, qtbot, window, app_catalog):
+    def test_periodo_vencido_niega_el_paso(self, qtbot, window, app_catalog):
         member_id = alta("Vencido Torres")
         dar_periodo(member_id, app_catalog, dias=-5)
         codigo = service.get_member(member_id).code
@@ -367,7 +367,7 @@ class TestKioskPage:
         assert not page.result_code_row.isVisibleTo(page)
         assert not page.result_detail.isVisibleTo(page)
 
-    def test_socio_sin_membresia(self, qtbot, window):
+    def test_socio_sin_pagos(self, qtbot, window):
         member_id = alta("Nuevo Sanchez")
         codigo = service.get_member(member_id).code
 
@@ -379,7 +379,7 @@ class TestKioskPage:
         assert page.result_code.text() == codigo
         assert page.result_code_row.isVisibleTo(page)
         assert page.result_detail.isVisibleTo(page)
-        assert "No cuenta" in page.result_detail.text()
+        assert "Sin pagos registrados" in page.result_detail.text()
         assert page.photo_slot.isVisibleTo(page)
         assert DANGER in page.result_name.styleSheet()
         assert DANGER not in page.result_detail.styleSheet()

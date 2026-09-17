@@ -45,6 +45,15 @@ class MemberProfileDialog(QDialog):
             self._label("Nacimiento"),
             QLabel(format_date(member.birth_date) if member.birth_date else "No registrada", self),
         )
+        details.addRow(self._label("Categoría"), QLabel(member.plan_category.name, self))
+        details.addRow(self._label("Plan"), QLabel(member.current_plan_label, self))
+        details.addRow(
+            self._label("Vigencia"),
+            QLabel(
+                format_date(member.recent_payment.end_date) if member.recent_payment else "—",
+                self,
+            ),
+        )
         details.addRow(self._label("Socio desde"), QLabel(format_date(member.created_at), self))
 
         details_card = Card(self)

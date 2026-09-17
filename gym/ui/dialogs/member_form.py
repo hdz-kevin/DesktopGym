@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from gym.data.models import Member
 from gym.domain.enums import MemberGender
 from gym.services import members as service
+from gym.services import plans as plans_service
 from gym.services.errors import ValidationError
 from gym.ui.dialogs.camera_capture import CameraCaptureDialog, camera_device
 from gym.ui.pages.helpers import avatar_pixmap
@@ -50,6 +51,11 @@ class MemberFormDialog(QDialog):
         for gender in MemberGender:
             self.gender_input.addItem(gender.label(), gender)
         self.gender_field = Field("Género", self.gender_input, self)
+
+        self.category_input = QComboBox(self)
+        for category in plans_service.list_plan_categories():
+            self.category_input.addItem(category.name, category.id)
+        self.category_field = Field("Categoría", self.category_input, self)
 
         self.birth_input = QDateEdit(self)
         self.birth_input.setCalendarPopup(True)
@@ -98,6 +104,7 @@ class MemberFormDialog(QDialog):
         layout.setSpacing(14)
         layout.addWidget(self.name_field)
         layout.addWidget(self.gender_field)
+        layout.addWidget(self.category_field)
         layout.addWidget(self.birth_field)
         layout.addWidget(self.photo_field)
         layout.addSpacing(6)
@@ -113,6 +120,9 @@ class MemberFormDialog(QDialog):
         index = self.gender_input.findData(member.gender)
         if index >= 0:
             self.gender_input.setCurrentIndex(index)
+        category_index = self.category_input.findData(member.plan_category_id)
+        if category_index >= 0:
+            self.category_input.setCurrentIndex(category_index)
         if member.birth_date:
             self.has_birth.setChecked(True)
             self.birth_input.setDate(
@@ -166,13 +176,14 @@ class MemberFormDialog(QDialog):
             name=self.name_input.text(),
             # Qt devuelve el dato del combo como texto plano, no como Enum.
             gender=MemberGender(self.gender_input.currentData()),
+            plan_category_id=self.category_input.currentData() or 0,
             birth_date=birth,
             photo_jpeg=self._photo_jpeg,
             remove_photo=self._remove_photo,
         )
 
     def accept(self) -> None:
-        for field in (self.name_field, self.birth_field, self.photo_field):
+        for field in (self.name_field, self.category_field, self.birth_field, self.photo_field):
             field.clear_error()
 
         form = self.build_form()
@@ -189,6 +200,7 @@ class MemberFormDialog(QDialog):
     def _show_errors(self, errors: dict[str, str]) -> None:
         mapping = {
             "name": self.name_field,
+            "plan_category": self.category_field,
             "birth_date": self.birth_field,
             "photo": self.photo_field,
         }

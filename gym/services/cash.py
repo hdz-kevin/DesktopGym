@@ -68,7 +68,7 @@ def _between(statement: Select, column, range_: VisitRange, moment: date | None)
 
 
 def _is_renewal():
-    """Un pago es renovacion si su membresia ya tenia otro pago anterior.
+    """Un pago es renovacion si el socio ya tenia otro pago anterior.
 
     Es la unica forma de distinguir un alta nueva de una renovacion sin guardar
     una bandera que se podria desincronizar.
@@ -77,7 +77,7 @@ def _is_renewal():
     return exists(
         select(previous.c.id).where(
             and_(
-                previous.c.membership_id == Payment.membership_id,
+                previous.c.member_id == Payment.member_id,
                 previous.c.start_date < Payment.start_date,
             )
         )

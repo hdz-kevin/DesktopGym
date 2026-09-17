@@ -53,9 +53,7 @@ class SettingsPage(Page):
         self.address_field = Field("Dirección", self.address_input, self)
 
         self.visit_price_input = MoneyInput(self)
-        self.visit_price_field = Field(
-            "Precio sugerido para visitas", self.visit_price_input, self
-        )
+        self.visit_price_field = Field("Precio sugerido para visitas", self.visit_price_input, self)
 
         self.keep_input = QSpinBox(self)
         self.keep_input.setRange(1, 365)

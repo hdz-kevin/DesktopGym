@@ -11,33 +11,29 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from gym.data.models import Member, Membership, Payment
-from gym.domain.enums import MembershipStatus, MemberStatus
+from gym.data.models import Member, Payment
+from gym.domain.enums import MemberStatus
 
 
-def _member(session, nombre: str, code: str) -> Member:
-    member = Member(name=nombre, code=code, gender="male")
+def _member(session, nombre: str, code: str, category) -> Member:
+    member = Member(name=nombre, code=code, gender="male", plan_category_id=category.id)
     session.add(member)
     session.flush()
     return member
 
 
-def _membership_con_pago(session, member, plan, inicio, fin) -> Membership:
-    membership = Membership(member_id=member.id, plan_category_id=plan.plan_category_id)
-    session.add(membership)
-    session.flush()
-    session.add(
-        Payment(
-            membership_id=membership.id,
-            plan_id=plan.id,
-            start_date=inicio,
-            end_date=fin,
-            price_paid_cents=plan.price_cents,
-        )
+def _pago(session, member, plan, inicio, fin) -> Payment:
+    payment = Payment(
+        member_id=member.id,
+        plan_id=plan.id,
+        start_date=inicio,
+        end_date=fin,
+        price_paid_cents=plan.price_cents,
     )
+    session.add(payment)
     session.commit()
-    session.refresh(membership)
-    return membership
+    session.refresh(member)
+    return payment
 
 
 @pytest.fixture
@@ -45,10 +41,15 @@ def ahora() -> datetime:
     return datetime.now()
 
 
-class TestMembershipStatus:
-    def test_activa_si_algun_pago_sigue_vigente(self, session, catalog, ahora):
-        member = _member(session, "Socio", "10005")
-        membership = _membership_con_pago(
+class TestMemberStatus:
+    def test_sin_pagos_es_vencido(self, session, catalog):
+        member = _member(session, "Nuevo", "10010", catalog["category"])
+        session.commit()
+        assert member.status is MemberStatus.EXPIRED
+
+    def test_activo_si_algun_pago_sigue_vigente(self, session, catalog, ahora):
+        member = _member(session, "Activo", "10011", catalog["category"])
+        _pago(
             session,
             member,
             catalog["monthly"],
@@ -57,7 +58,7 @@ class TestMembershipStatus:
         )
         session.add(
             Payment(
-                membership_id=membership.id,
+                member_id=member.id,
                 plan_id=catalog["monthly"].id,
                 start_date=ahora - timedelta(days=5),
                 end_date=ahora + timedelta(days=25),
@@ -65,39 +66,31 @@ class TestMembershipStatus:
             )
         )
         session.commit()
-        session.refresh(membership)
+        session.refresh(member)
+        assert member.status is MemberStatus.ACTIVE
 
-        assert membership.status is MembershipStatus.ACTIVE
-
-    def test_vencida_si_todos_los_pagos_terminaron(self, session, catalog, ahora):
-        member = _member(session, "Socio", "10006")
-        membership = _membership_con_pago(
+    def test_vencido_si_todos_los_pagos_terminaron(self, session, catalog, ahora):
+        member = _member(session, "Vencido", "10012", catalog["category"])
+        _pago(
             session,
             member,
             catalog["monthly"],
             ahora - timedelta(days=70),
             ahora - timedelta(days=40),
         )
-        assert membership.status is MembershipStatus.EXPIRED
-
-    def test_sin_pagos_es_vencida(self, session, catalog):
-        member = _member(session, "Socio", "10007")
-        membership = Membership(member_id=member.id, plan_category_id=catalog["category"].id)
-        session.add(membership)
-        session.commit()
-        assert membership.status is MembershipStatus.EXPIRED
+        assert member.status is MemberStatus.EXPIRED
 
     def test_filtro_en_sql_coincide_con_python(self, session, catalog, ahora):
-        activo = _member(session, "Activo", "10008")
-        vencido = _member(session, "Vencido", "10009")
-        _membership_con_pago(
+        activo = _member(session, "Activo", "10008", catalog["category"])
+        vencido = _member(session, "Vencido", "10009", catalog["category"])
+        _pago(
             session,
             activo,
             catalog["monthly"],
             ahora - timedelta(days=5),
             ahora + timedelta(days=25),
         )
-        _membership_con_pago(
+        _pago(
             session,
             vencido,
             catalog["monthly"],
@@ -105,57 +98,24 @@ class TestMembershipStatus:
             ahora - timedelta(days=40),
         )
 
-        activas = session.scalars(
-            select(Membership).where(Membership.status == MembershipStatus.ACTIVE.value)
+        activos = session.scalars(
+            select(Member).where(Member.status == MemberStatus.ACTIVE.value)
         ).all()
 
-        assert len(activas) == 1
-        assert activas[0].status is MembershipStatus.ACTIVE
-        assert activas[0].member.name == "Activo"
+        assert len(activos) == 1
+        assert activos[0].status is MemberStatus.ACTIVE
+        assert activos[0].name == "Activo"
 
-
-class TestMemberStatus:
-    def test_sin_membresias(self, session):
-        member = _member(session, "Nuevo", "10010")
-        session.commit()
-        assert member.status is MemberStatus.NO_MEMBERSHIP
-
-    def test_activo_con_una_membresia_vigente(self, session, catalog, ahora):
-        member = _member(session, "Activo", "10011")
-        _membership_con_pago(
-            session,
-            member,
-            catalog["monthly"],
-            ahora - timedelta(days=5),
-            ahora + timedelta(days=25),
-        )
-        session.refresh(member)
-        assert member.status is MemberStatus.ACTIVE
-        assert member.active_membership() is not None
-
-    def test_vencido_con_todas_las_membresias_terminadas(self, session, catalog, ahora):
-        member = _member(session, "Vencido", "10012")
-        _membership_con_pago(
+    def test_recent_payment_es_el_de_id_mas_alto(self, session, catalog, ahora):
+        member = _member(session, "Socio", "10013", catalog["category"])
+        _pago(
             session,
             member,
             catalog["monthly"],
             ahora - timedelta(days=70),
             ahora - timedelta(days=40),
         )
-        session.refresh(member)
-        assert member.status is MemberStatus.EXPIRED
-        assert member.active_membership() is None
-
-    def test_latest_membership_devuelve_la_mas_reciente(self, session, catalog, ahora):
-        member = _member(session, "Socio", "10013")
-        _membership_con_pago(
-            session,
-            member,
-            catalog["monthly"],
-            ahora - timedelta(days=70),
-            ahora - timedelta(days=40),
-        )
-        reciente = _membership_con_pago(
+        reciente = _pago(
             session,
             member,
             catalog["biweekly"],
@@ -163,11 +123,5 @@ class TestMemberStatus:
             ahora + timedelta(days=12),
         )
         session.refresh(member)
-        # SQLite guarda datetime al segundo: si ambas filas empatan, gana el id
-        # mas alto (la que se dio de alta despues). Sin ese desempate pytest
-        # reporta `assert 1 == 2`.
-        for membership in member.memberships:
-            membership.updated_at = ahora
-        session.commit()
-        session.refresh(member)
-        assert member.latest_membership().id == reciente.id
+        assert member.recent_payment is not None
+        assert member.recent_payment.id == reciente.id

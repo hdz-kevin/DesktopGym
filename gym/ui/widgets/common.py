@@ -16,14 +16,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from gym.domain.enums import MembershipStatus, MemberStatus
+from gym.domain.enums import MemberStatus
 
 BADGE_BY_STATUS = {
     MemberStatus.ACTIVE: "badgeSuccess",
     MemberStatus.EXPIRED: "badgeDanger",
-    MemberStatus.NO_MEMBERSHIP: "badgeNeutral",
-    MembershipStatus.ACTIVE: "badgeSuccess",
-    MembershipStatus.EXPIRED: "badgeDanger",
 }
 
 

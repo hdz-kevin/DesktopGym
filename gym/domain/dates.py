@@ -55,7 +55,7 @@ def end_of_day(moment: datetime | date) -> datetime:
 def add_months(moment: datetime, months: int) -> datetime:
     """Suma meses recortando al ultimo dia del mes destino.
 
-    Una membresia que inicia el 31 de enero por un mes vence el 28 de febrero,
+    Un periodo que inicia el 31 de enero por un mes vence el 28 de febrero,
     no el 3 de marzo. La suma nativa de PHP y de Carbon desborda al mes siguiente,
     lo que dejaria al socio con dias de mas.
     """

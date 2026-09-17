@@ -68,6 +68,16 @@ def app_catalog(app_db) -> dict[str, int]:
         }
 
 
+def default_category_id() -> int:
+    """Categoria para pruebas que solo necesitan dar de alta un socio."""
+    from gym.services import plans as plans_service
+
+    categories = plans_service.list_plan_categories()
+    if categories:
+        return categories[0].id
+    return plans_service.create_plan_category("General")
+
+
 def _build_catalog(session: Session) -> dict[str, Plan | PlanCategory]:
     general = PlanCategory(name="General")
     session.add(general)

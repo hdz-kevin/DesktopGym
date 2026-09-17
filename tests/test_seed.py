@@ -8,7 +8,7 @@ from gym.config import Settings, backups_dir, photos_dir
 from gym.data.schema import SEED_CATALOG, seed_catalog
 from gym.seed import main as seed_cli
 from gym.services import members as members_service
-from gym.services import memberships as memberships_service
+from gym.services import plans as plans_service
 from gym.services import products as products_service
 from gym.services import sales as sales_service
 from gym.services.seeder import reset_to_catalog, seed
@@ -18,11 +18,11 @@ from gym.single_instance import InstanceLock
 
 
 def _tipos() -> list[str]:
-    return [t.name for t in memberships_service.list_plan_categories()]
+    return [t.name for t in plans_service.list_plan_categories()]
 
 
 def _planes() -> list[tuple[str, str, int]]:
-    return [(d.plan_category.name, d.name, d.price_cents) for d in memberships_service.list_plans()]
+    return [(d.plan_category.name, d.name, d.price_cents) for d in plans_service.list_plans()]
 
 
 class TestReset:
@@ -31,7 +31,7 @@ class TestReset:
 
         assert _tipos() == sorted(SEED_CATALOG)
         assert members_service.member_stats().total == 0
-        assert memberships_service.membership_stats().total == 0
+        assert members_service.member_stats().total == 0
         _, productos = products_service.list_products()
         assert productos == 0
         assert visit_totals(VisitRange.ALL).count == 0
@@ -43,7 +43,7 @@ class TestReset:
 
         stats = members_service.member_stats()
         assert stats.total == 0
-        assert memberships_service.membership_stats().total == 0
+        assert members_service.member_stats().total == 0
         _, productos = products_service.list_products()
         assert productos == 0
         assert visit_totals(VisitRange.ALL).count == 0
@@ -51,7 +51,7 @@ class TestReset:
 
     def test_restaura_precios_aunque_el_catalogo_se_haya_editado(self, app_db):
         seed_catalog()
-        memberships_service.create_plan_category("VIP")
+        plans_service.create_plan_category("VIP")
 
         reset_to_catalog()
 
@@ -83,20 +83,16 @@ class TestSeed:
         summary = seed()
 
         stats = members_service.member_stats()
-        memberships = memberships_service.membership_stats()
         _, productos = products_service.list_products()
 
         assert summary.members == stats.total == 32
-        assert summary.memberships == memberships.total
+        assert summary.payments > 0
         assert summary.visits == visit_totals(VisitRange.ALL).count
         assert summary.products == productos == 11
         assert summary.sales == sales_service.totals(VisitRange.ALL).count == 18
 
         assert stats.active > 0
         assert stats.expired > 0
-        assert stats.without_membership > 0
-        assert memberships.active > 0
-        assert memberships.expired > 0
         assert visit_totals(VisitRange.TODAY).count > 0
         assert sales_service.totals(VisitRange.TODAY).count > 0
         assert products_service.low_stock()

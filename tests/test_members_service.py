@@ -5,31 +5,42 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from gym.data.database import session_scope
-from gym.data.models import Member, Membership, Payment
+from gym.data.models import Member, Payment
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.services import members as service
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
+from tests.conftest import default_category_id
 
 
 def alta(nombre: str = "Ana Lopez", **kwargs) -> int:
     form = service.MemberForm(
         name=nombre,
         gender=kwargs.pop("gender", MemberGender.FEMALE),
+        plan_category_id=kwargs.pop("plan_category_id", None) or default_category_id(),
         birth_date=kwargs.pop("birth_date", None),
         photo_jpeg=kwargs.pop("photo_jpeg", None),
     )
     return service.create_member(form)
 
 
-def dar_membresia(member_id: int, plan_id: int, category_id: int, dias_restantes: int) -> None:
+def _form(nombre: str = "Ana Lopez", member_id: int | None = None, **kwargs) -> service.MemberForm:
+    category_id = kwargs.pop("plan_category_id", None)
+    if category_id is None and member_id is not None:
+        category_id = service.get_member(member_id).plan_category_id
+    return service.MemberForm(
+        name=nombre,
+        gender=kwargs.pop("gender", MemberGender.FEMALE),
+        plan_category_id=category_id or default_category_id(),
+        **kwargs,
+    )
+
+
+def dar_pago(member_id: int, plan_id: int, dias_restantes: int) -> None:
     ahora = datetime.now()
     with session_scope() as session:
-        membership = Membership(member_id=member_id, plan_category_id=category_id)
-        session.add(membership)
-        session.flush()
         session.add(
             Payment(
-                membership_id=membership.id,
+                member_id=member_id,
                 plan_id=plan_id,
                 start_date=ahora - timedelta(days=30),
                 end_date=ahora + timedelta(days=dias_restantes),
@@ -52,9 +63,9 @@ class TestCrear:
         member = service.get_member(alta("  Ana Lopez  "))
         assert member.name == "Ana Lopez"
 
-    def test_socio_nuevo_no_tiene_membresia(self, app_db):
+    def test_socio_nuevo_esta_vencido(self, app_db):
         member = service.get_member(alta())
-        assert member.status is MemberStatus.NO_MEMBERSHIP
+        assert member.status is MemberStatus.EXPIRED
 
     @pytest.mark.parametrize("nombre", ["", "  ", "Ab"])
     def test_rechaza_nombres_invalidos(self, app_db, nombre):
@@ -117,11 +128,7 @@ class TestFoto:
 
         service.update_member(
             member_id,
-            service.MemberForm(
-                name="Ana Lopez",
-                gender=MemberGender.FEMALE,
-                photo_jpeg=self._jpeg(),
-            ),
+            _form("Ana Lopez", member_id=member_id, photo_jpeg=self._jpeg()),
         )
 
         assert service.photo_path(anterior) is None
@@ -131,7 +138,7 @@ class TestFoto:
         member_id = alta(photo_jpeg=self._jpeg())
         service.update_member(
             member_id,
-            service.MemberForm(name="Ana Lopez", gender=MemberGender.FEMALE, remove_photo=True),
+            _form("Ana Lopez", member_id=member_id, remove_photo=True),
         )
         assert service.get_member(member_id).photo is None
 
@@ -141,9 +148,9 @@ class TestEditarYBorrar:
         member_id = alta()
         service.update_member(
             member_id,
-            service.MemberForm(
-                name="Ana Maria Lopez",
-                gender=MemberGender.FEMALE,
+            _form(
+                "Ana Maria Lopez",
+                member_id=member_id,
                 birth_date=date(1995, 3, 20),
             ),
         )
@@ -156,7 +163,7 @@ class TestEditarYBorrar:
         member_id = alta()
         original = service.get_member(member_id).code
         service.update_member(
-            member_id, service.MemberForm(name="Otro Nombre", gender=MemberGender.MALE)
+            member_id, _form("Otro Nombre", member_id=member_id, gender=MemberGender.MALE)
         )
         assert service.get_member(member_id).code == original
 
@@ -166,18 +173,16 @@ class TestEditarYBorrar:
         with pytest.raises(NotFoundError):
             service.get_member(member_id)
 
-    def test_no_borra_socio_con_membresias(self, app_db, app_catalog):
+    def test_no_borra_socio_con_pagos(self, app_db, app_catalog):
         member_id = alta()
-        dar_membresia(member_id, app_catalog["monthly_id"], app_catalog["category_id"], 10)
+        dar_pago(member_id, app_catalog["monthly_id"], 10)
 
-        with pytest.raises(ServiceError, match="membresía"):
+        with pytest.raises(ServiceError, match="pagos registrados"):
             service.delete_member(member_id)
 
     def test_editar_socio_inexistente(self, app_db):
         with pytest.raises(NotFoundError):
-            service.update_member(
-                999, service.MemberForm(name="Fantasma", gender=MemberGender.MALE)
-            )
+            service.update_member(999, _form("Fantasma", gender=MemberGender.MALE))
 
 
 class TestListadoYFiltros:
@@ -185,8 +190,8 @@ class TestListadoYFiltros:
         activo = alta("Activo Ramirez")
         vencido = alta("Vencido Torres")
         sin = alta("Nuevo Sanchez")
-        dar_membresia(activo, app_catalog["monthly_id"], app_catalog["category_id"], 15)
-        dar_membresia(vencido, app_catalog["monthly_id"], app_catalog["category_id"], -5)
+        dar_pago(activo, app_catalog["monthly_id"], 15)
+        dar_pago(vencido, app_catalog["monthly_id"], -5)
         return activo, vencido, sin
 
     def test_lista_todo_por_defecto(self, app_db, app_catalog):
@@ -211,20 +216,19 @@ class TestListadoYFiltros:
         rows, _ = service.list_members()
         assert [r.id for r in rows] == [segundo, primero]
 
-    @pytest.mark.parametrize(
-        ("estado", "esperado"),
-        [
-            (MemberStatus.ACTIVE, "Activo Ramirez"),
-            (MemberStatus.EXPIRED, "Vencido Torres"),
-            (MemberStatus.NO_MEMBERSHIP, "Nuevo Sanchez"),
-        ],
-    )
-    def test_filtra_por_estado(self, app_db, app_catalog, estado, esperado):
+    def test_filtra_activos(self, app_db, app_catalog):
         self._poblar(app_catalog)
-        rows, total = service.list_members(status=estado)
+        rows, total = service.list_members(status=MemberStatus.ACTIVE)
         assert total == 1
-        assert rows[0].name == esperado
-        assert rows[0].status is estado
+        assert rows[0].name == "Activo Ramirez"
+        assert rows[0].status is MemberStatus.ACTIVE
+
+    def test_filtra_vencidos(self, app_db, app_catalog):
+        self._poblar(app_catalog)
+        rows, total = service.list_members(status=MemberStatus.EXPIRED)
+        assert total == 2
+        assert {row.name for row in rows} == {"Vencido Torres", "Nuevo Sanchez"}
+        assert all(row.status is MemberStatus.EXPIRED for row in rows)
 
     def test_busca_por_nombre_sin_importar_mayusculas(self, app_db, app_catalog):
         self._poblar(app_catalog)
@@ -250,7 +254,7 @@ class TestListadoYFiltros:
     def test_estadisticas(self, app_db, app_catalog):
         self._poblar(app_catalog)
         stats = service.member_stats()
-        assert (stats.total, stats.active, stats.expired, stats.without_membership) == (3, 1, 1, 1)
+        assert (stats.total, stats.active, stats.expired) == (3, 1, 2)
 
     def test_estadisticas_sin_socios(self, app_db):
         stats = service.member_stats()

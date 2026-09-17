@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from gym.config import photos_dir
 from gym.data.database import session_scope
-from gym.data.models import Member, Membership, Payment, Plan
+from gym.data.models import Member, Payment, Plan, PlanCategory
 from gym.domain.enums import MemberGender, MemberStatus
 from gym.domain.rules import generate_member_code
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
@@ -28,6 +28,7 @@ JPEG_MAGIC = b"\xff\xd8"
 class MemberForm:
     name: str
     gender: MemberGender
+    plan_category_id: int
     birth_date: date | None = None
     photo_jpeg: bytes | None = None
     remove_photo: bool = False
@@ -38,21 +39,17 @@ class MemberStats:
     total: int = 0
     active: int = 0
     expired: int = 0
-    without_membership: int = 0
 
 
 def _eager():
     """Carga por adelantado todo lo que la interfaz leera fuera de la sesion.
 
-    Sin esto, acceder a `member.memberships[0].current_plan_label` despues de
-    cerrar el `session_scope` lanzaria DetachedInstanceError.
+    Sin esto, acceder a `member.current_plan_label` despues de cerrar el
+    `session_scope` lanzaria DetachedInstanceError.
     """
     return (
-        selectinload(Member.memberships).selectinload(Membership.plan_category),
-        selectinload(Member.memberships)
-        .selectinload(Membership.payments)
-        .selectinload(Payment.plan)
-        .selectinload(Plan.plan_category),
+        selectinload(Member.plan_category),
+        selectinload(Member.payments).selectinload(Payment.plan).selectinload(Plan.plan_category),
     )
 
 
@@ -66,6 +63,9 @@ def validate(form: MemberForm) -> dict[str, str]:
         errors["name"] = "El nombre debe tener al menos 3 caracteres."
     elif len(name) > 255:
         errors["name"] = "El nombre es demasiado largo."
+
+    if not form.plan_category_id:
+        errors["plan_category"] = "La categoría es obligatoria."
 
     if form.birth_date:
         if form.birth_date > date.today():
@@ -108,12 +108,18 @@ def photo_path(name: str | None) -> Path | None:
     return path if path.exists() else None
 
 
+def _require_category(session, category_id: int) -> None:
+    if session.get(PlanCategory, category_id) is None:
+        raise ValidationError({"plan_category": "La categoría seleccionada ya no existe."})
+
+
 def create_member(form: MemberForm) -> int:
     errors = validate(form)
     if errors:
         raise ValidationError(errors)
 
     with session_scope() as session:
+        _require_category(session, form.plan_category_id)
         code = generate_member_code(
             lambda candidate: (
                 session.scalar(
@@ -127,6 +133,7 @@ def create_member(form: MemberForm) -> int:
             code=code,
             gender=form.gender,
             birth_date=form.birth_date,
+            plan_category_id=form.plan_category_id,
             photo=_store_photo(form.photo_jpeg) if form.photo_jpeg is not None else None,
         )
         session.add(member)
@@ -145,9 +152,11 @@ def update_member(member_id: int, form: MemberForm) -> None:
         if member is None:
             raise NotFoundError("El socio ya no existe.")
 
+        _require_category(session, form.plan_category_id)
         member.name = form.name.strip()
         member.gender = form.gender
         member.birth_date = form.birth_date
+        member.plan_category_id = form.plan_category_id
 
         if form.remove_photo:
             _delete_photo(member.photo)
@@ -161,9 +170,9 @@ def update_member(member_id: int, form: MemberForm) -> None:
 
 
 def delete_member(member_id: int) -> None:
-    """Borra un socio solo si nunca tuvo membresias.
+    """Borra un socio solo si nunca tuvo pagos.
 
-    Con historial de pagos de por medio, borrarlo dejaria huecos en los cortes
+    Con historial de cobros de por medio, borrarlo dejaria huecos en los cortes
     de caja ya emitidos.
     """
     with session_scope() as session:
@@ -172,10 +181,10 @@ def delete_member(member_id: int) -> None:
             raise NotFoundError("El socio ya no existe.")
 
         has_history = session.scalar(
-            select(func.count()).select_from(Membership).where(Membership.member_id == member_id)
+            select(func.count()).select_from(Payment).where(Payment.member_id == member_id)
         )
         if has_history:
-            raise ServiceError("No se puede eliminar un socio con membresía asignada.")
+            raise ServiceError("No se puede eliminar un socio con pagos registrados.")
 
         _delete_photo(member.photo)
         session.delete(member)
@@ -239,5 +248,4 @@ def member_stats() -> MemberStats:
             total=sum(counts.values()),
             active=counts.get(MemberStatus.ACTIVE.value, 0),
             expired=counts.get(MemberStatus.EXPIRED.value, 0),
-            without_membership=counts.get(MemberStatus.NO_MEMBERSHIP.value, 0),
         )

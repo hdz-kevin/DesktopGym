@@ -27,24 +27,11 @@ class MemberGender(str, Enum):
         return "Masculino" if self is MemberGender.MALE else "Femenino"
 
 
-class MembershipStatus(str, Enum):
-    ACTIVE = "active"
-    EXPIRED = "expired"
-
-    def label(self) -> str:
-        return "Activa" if self is MembershipStatus.ACTIVE else "Vencida"
-
-
 class MemberStatus(str, Enum):
-    """Estado del socio derivado de sus membresias."""
+    """Estado del socio derivado de sus pagos."""
 
     ACTIVE = "active"
     EXPIRED = "expired"
-    NO_MEMBERSHIP = "no_membership"
 
     def label(self) -> str:
-        return {
-            MemberStatus.ACTIVE: "Activo",
-            MemberStatus.EXPIRED: "Vencido",
-            MemberStatus.NO_MEMBERSHIP: "Sin membresía",
-        }[self]
+        return "Activo" if self is MemberStatus.ACTIVE else "Vencido"

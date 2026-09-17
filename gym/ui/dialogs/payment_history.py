@@ -1,4 +1,4 @@
-"""Historial de pagos de una membresia. Solo lectura: los cobros no se corrigen."""
+"""Historial de pagos de un socio. Solo lectura: los cobros no se corrigen."""
 
 from __future__ import annotations
 
@@ -8,21 +8,20 @@ from PySide6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QLabel, QVBoxLa
 from gym.data.models import Payment
 from gym.domain.dates import format_range
 from gym.domain.money import format_money
-from gym.services import memberships as service
+from gym.services import members as service
 from gym.ui.theme import SUCCESS
 from gym.ui.widgets.common import secondary_button, status_badge
 from gym.ui.widgets.table import Column, PagedTable
 
 
-class MembershipHistoryDialog(QDialog):
-    def __init__(self, membership_id: int, parent: QWidget | None = None) -> None:
+class PaymentHistoryDialog(QDialog):
+    def __init__(self, member_id: int, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setObjectName("membershipHistory")
-        self.membership_id = membership_id
-        self.changed = False
+        self.setObjectName("paymentHistory")
+        self.member_id = member_id
 
-        membership = service.get_membership(membership_id)
-        self.setWindowTitle(f"Historial · {membership.member.name}")
+        member = service.get_member(member_id)
+        self.setWindowTitle(f"Historial · {member.name}")
         self.setModal(True)
         self.setMinimumSize(840, 520)
 
@@ -53,7 +52,7 @@ class MembershipHistoryDialog(QDialog):
                 ),
             ],
             page_size=30,
-            empty_text="Esta membresía no tiene pagos.",
+            empty_text="Este socio no tiene pagos.",
         )
         self.table.page_changed.connect(lambda _: self.load())
 
@@ -67,7 +66,7 @@ class MembershipHistoryDialog(QDialog):
         body = QVBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(20)
-        body.addWidget(self._heading(membership))
+        body.addWidget(self._heading(member))
         body.addLayout(details)
         body.addWidget(self.table, 1)
 
@@ -76,18 +75,25 @@ class MembershipHistoryDialog(QDialog):
 
         self.load()
 
-    def _heading(self, membership) -> QWidget:
+    def _heading(self, member) -> QWidget:
         box = QWidget(self)
-        box.setObjectName("membershipHeading")
         row = QHBoxLayout(box)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(10)
+        row.setSpacing(12)
 
-        title = QLabel(f"Historial de {membership.member.name}", box)
-        title.setObjectName("pageTitle")
-        row.addWidget(title)
-        row.addWidget(status_badge(membership.status))
-        row.addStretch(1)
+        name = QLabel(member.name, box)
+        name.setObjectName("memberName")
+        code = QLabel(f"Código {member.code}", box)
+        code.setObjectName("muted")
+
+        text = QVBoxLayout()
+        text.setContentsMargins(0, 0, 0, 0)
+        text.setSpacing(6)
+        text.addWidget(name)
+        text.addWidget(code)
+
+        row.addLayout(text, 1)
+        row.addWidget(status_badge(member.status), alignment=Qt.AlignmentFlag.AlignRight)
         return box
 
     def _label(self, text: str) -> QLabel:
@@ -96,10 +102,10 @@ class MembershipHistoryDialog(QDialog):
         return label
 
     def load(self) -> None:
-        membership = service.get_membership(self.membership_id)
-        payments = sorted(membership.payments, key=lambda p: p.start_date, reverse=True)
+        member = service.get_member(self.member_id)
+        payments = sorted(member.payments, key=lambda p: p.start_date, reverse=True)
         total = len(payments)
         page = payments[self.table.offset : self.table.offset + self.table.page_size]
         self.table.set_data(page, total)
         self.payments_value.setText(str(total))
-        self.total_value.setText(format_money(membership.total_paid_cents))
+        self.total_value.setText(format_money(member.total_paid_cents))

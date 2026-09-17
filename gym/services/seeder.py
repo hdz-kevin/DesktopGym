@@ -12,26 +12,17 @@ import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from gym.config import photos_dir
 from gym.data.database import session_scope
-from gym.data.models import (
-    Member,
-    Membership,
-    Payment,
-    Plan,
-    PlanCategory,
-    Product,
-    ProductSale,
-    Sale,
-    Visit,
-)
+from gym.data.models import Member, Payment, Plan, PlanCategory, Product, ProductSale, Sale, Visit
 from gym.data.schema import populate_seed_catalog
 from gym.domain.dates import add_months, start_of_day
 from gym.domain.enums import MemberGender
 from gym.services import members as members_service
-from gym.services import memberships as memberships_service
+from gym.services import payments as payments_service
+from gym.services import plans as plans_service
 from gym.services import products as products_service
 from gym.services import sales as sales_service
 from gym.services import visits as visits_service
@@ -43,7 +34,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class SeedSummary:
     members: int
-    memberships: int
+    payments: int
     visits: int
     products: int
     sales: int
@@ -111,7 +102,6 @@ def reset_to_catalog() -> None:
         session.execute(delete(Sale))
         session.execute(delete(Visit))
         session.execute(delete(Payment))
-        session.execute(delete(Membership))
         session.execute(delete(Member))
         session.execute(delete(Product))
         session.execute(delete(Plan))
@@ -126,21 +116,21 @@ def seed() -> SeedSummary:
     reset_to_catalog()
     catalog = _plan_ids()
     ids = _seed_members()
-    memberships = _seed_memberships(ids, catalog)
+    payments = _seed_payments(ids, catalog)
     visits = _seed_visits()
     products = _seed_products()
     sales = _seed_sales(products)
     summary = SeedSummary(
         members=len(ids),
-        memberships=memberships,
+        payments=payments,
         visits=visits,
         products=len(products),
         sales=sales,
     )
     logger.info(
-        "Datos de prueba cargados: %s socios, %s membresias, %s visitas, %s productos, %s ventas",
+        "Datos de prueba cargados: %s socios, %s pagos, %s visitas, %s productos, %s ventas",
         summary.members,
-        summary.memberships,
+        summary.payments,
         summary.visits,
         summary.products,
         summary.sales,
@@ -157,32 +147,57 @@ def _clear_photos() -> None:
 
 def _plan_ids() -> dict[str, int]:
     ids: dict[str, int] = {}
-    for plan in memberships_service.list_plans():
+    for plan in plans_service.list_plans():
         ids[f"{plan.plan_category.name}:{plan.name}"] = plan.id
     return ids
 
 
+def _category_ids() -> dict[str, int]:
+    return {category.name: category.id for category in plans_service.list_plan_categories()}
+
+
+_STUDENT_MEMBERS = {
+    "Diego Navarro",
+    "Valeria Cruz",
+    "Miguel Angel Torres",
+    "Gabriela Ramos",
+    "Alejandra Campos",
+    "Ivan Guerrero",
+    "Monica Fuentes",
+    "Patricia Vega",
+    "Francisco Reyes",
+}
+
+
 def _seed_members() -> dict[str, int]:
+    categories = _category_ids()
+    general_id = categories["General"]
+    student_id = categories["Estudiante"]
     ids: dict[str, int] = {}
     for name, gender, birth_date in _MEMBERS:
+        category_id = student_id if name in _STUDENT_MEMBERS else general_id
         ids[name] = members_service.create_member(
-            members_service.MemberForm(name=name, gender=gender, birth_date=birth_date)
+            members_service.MemberForm(
+                name=name,
+                gender=gender,
+                birth_date=birth_date,
+                plan_category_id=category_id,
+            )
         )
     return ids
 
 
-def _seed_memberships(ids: dict[str, int], catalog: dict[str, int]) -> int:
+def _seed_payments(ids: dict[str, int], catalog: dict[str, int]) -> int:
     today = date.today()
     general_month = catalog["General:Mensual"]
     general_weeks = catalog["General:2 Semanas"]
     student_month = catalog["Estudiante:Mensual"]
     student_weeks = catalog["Estudiante:2 Semanas"]
 
-    def give(name: str, plan_id: int, start: date, *, renew: bool = False) -> int:
-        membership_id = memberships_service.create_membership(ids[name], plan_id, start=start)
+    def give(name: str, plan_id: int, start: date, *, renew: bool = False) -> None:
+        payments_service.charge(ids[name], plan_id, start=start)
         if renew:
-            memberships_service.renew_membership(membership_id, plan_id)
-        return membership_id
+            payments_service.charge(ids[name], plan_id)
 
     # Activos con distintos planes y antiguedades.
     give("Ana Lucia Ramirez", general_month, today - timedelta(days=12))
@@ -216,9 +231,19 @@ def _seed_memberships(ids: dict[str, int], catalog: dict[str, int]) -> int:
     # Vencio hace meses y se reactivo hoy.
     give("Jorge Pena", general_month, today - timedelta(days=80), renew=True)
 
-    # Dos planes distintos en el historial, incluyendo un cambio de categoria.
-    mixed = give("Monica Fuentes", student_weeks, today - timedelta(days=40))
-    memberships_service.renew_membership(mixed, general_month, start=today - timedelta(days=20))
+    # Cambio de categoria: el historial conserva el plan estudiante cobrado.
+    give("Monica Fuentes", student_weeks, today - timedelta(days=40))
+    monica = members_service.get_member(ids["Monica Fuentes"])
+    members_service.update_member(
+        monica.id,
+        members_service.MemberForm(
+            name=monica.name,
+            gender=monica.gender,
+            birth_date=monica.birth_date,
+            plan_category_id=_category_ids()["General"],
+        ),
+    )
+    payments_service.charge(ids["Monica Fuentes"], general_month, start=today - timedelta(days=20))
 
     # Vencidos sin renovar.
     give("Roberto Diaz", general_month, today - timedelta(days=100))
@@ -229,9 +254,10 @@ def _seed_memberships(ids: dict[str, int], catalog: dict[str, int]) -> int:
     give("Francisco Reyes", student_weeks, today - timedelta(days=18))
     give("Eduardo Castillo", general_month, today - timedelta(days=45))
 
-    # Sin membresia: Pablo, Lucia, Hector, Carmen, Oscar, Paola.
+    # Sin pagos: Pablo, Lucia, Hector, Carmen, Oscar, Paola.
 
-    return memberships_service.membership_stats().total
+    with session_scope() as session:
+        return int(session.scalar(select(func.count()).select_from(Payment)) or 0)
 
 
 def _seed_visits() -> int:

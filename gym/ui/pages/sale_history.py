@@ -37,7 +37,10 @@ class SalesHistoryPage(Page):
         self.window_ref = window
         self._range = VisitRange.TODAY
 
-        header = PageHeader("Historial de Ventas", "Consulta el historial de ventas de productos a detalle")
+        header = PageHeader(
+            "Historial de Ventas",
+            "Consulta el historial de ventas de productos a detalle",
+        )
 
         self.stat_today = StatCard("Hoy")
         self.stat_week = StatCard("Esta semana")
