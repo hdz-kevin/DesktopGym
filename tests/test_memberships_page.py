@@ -187,7 +187,7 @@ class TestHistoryDialog:
             dialog.table.model.data(dialog.table.model.index(i, 1), Qt.ItemDataRole.DisplayRole)
             for i in range(2)
         ]
-        assert planes == ["General · Mensual", "General · Mensual"]
+        assert planes == ["Mensual", "Mensual"]
         etiquetas = [
             dialog.table.model.data(dialog.table.model.index(i, 3), Qt.ItemDataRole.DisplayRole)
             for i in range(2)

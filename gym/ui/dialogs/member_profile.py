@@ -44,7 +44,7 @@ class MemberProfileDialog(QDialog):
         self.table = PagedTable[Payment](
             columns=[
                 Column("Vigencia", lambda p: format_range(p.start_date, p.end_date), stretch=True),
-                Column("Plan", lambda p: p.plan.label, width=210),
+                Column("Plan", lambda p: p.plan.name, width=140),
                 Column(
                     "Importe",
                     lambda p: format_money(p.price_paid_cents),
