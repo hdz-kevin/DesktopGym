@@ -99,7 +99,7 @@ class MemberProfileDialog(QDialog):
 
         details = QFormLayout()
         details.setContentsMargins(0, 0, 0, 0)
-        details.setVerticalSpacing(12)
+        details.setVerticalSpacing(14)
         details.setHorizontalSpacing(16)
         details.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
         details.addRow(self._label("Código"), QLabel(member.code, self))

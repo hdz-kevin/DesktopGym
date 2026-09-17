@@ -61,7 +61,7 @@ class MembersPage(Page):
         self._search = ""
         self._status: MemberStatus | None = None
 
-        header = PageHeader("Socios", "Ficha, renovaciones y vigencia de los socios del gimnasio")
+        header = PageHeader("Socios", "Gestión de socios e historial de pagos")
 
         self.stat_total = StatCard("Total")
         self.stat_active = StatCard("Activos")
