@@ -108,7 +108,9 @@ class Member(Base, TimestampMixin):
     def latest_membership(self) -> Membership | None:
         if not self.memberships:
             return None
-        return max(self.memberships, key=lambda m: m.updated_at)
+        # SQLite suele guardar datetime al segundo: dos altas seguidas empatan
+        # en updated_at y max() se quedaria con la primera (la mas vieja).
+        return max(self.memberships, key=lambda m: (m.updated_at, m.id))
 
 
 class PlanCategory(Base, TimestampMixin):

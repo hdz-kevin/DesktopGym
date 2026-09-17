@@ -163,4 +163,11 @@ class TestMemberStatus:
             ahora + timedelta(days=12),
         )
         session.refresh(member)
+        # SQLite guarda datetime al segundo: si ambas filas empatan, gana el id
+        # mas alto (la que se dio de alta despues). Sin ese desempate pytest
+        # reporta `assert 1 == 2`.
+        for membership in member.memberships:
+            membership.updated_at = ahora
+        session.commit()
+        session.refresh(member)
         assert member.latest_membership().id == reciente.id

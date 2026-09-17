@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import gc
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -42,6 +44,9 @@ def app_db(tmp_path, monkeypatch):
     Base.metadata.create_all(engine)
     yield engine
     database.dispose_engine()
+    # En Windows el .sqlite sigue ocupado un instante tras dispose y pytest
+    # no puede borrar tmp_path.
+    gc.collect()
 
 
 @pytest.fixture

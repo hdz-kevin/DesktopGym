@@ -7,6 +7,7 @@ distintos del mismo socio y compitiendo por el archivo.
 from __future__ import annotations
 
 import os
+from contextlib import suppress
 from pathlib import Path
 
 from gym.config import data_dir
@@ -22,12 +23,18 @@ class InstanceLock:
             # El archivo se queda abierto a proposito: el candado del sistema
             # operativo vive mientras exista el descriptor, asi que cerrarlo con
             # un context manager liberaria el bloqueo de inmediato.
-            self._handle = open(self.path, "a+")  # noqa: SIM115
+            self._handle = open(self.path, "a+", encoding="utf-8")  # noqa: SIM115
         except OSError:
-            # Sin permiso para el candado, es preferible abrir la aplicacion.
-            return True
+            # En Windows, abrir un archivo ya bloqueado tambien lanza
+            # PermissionError. Si el candado existe, otra instancia esta
+            # dentro. Si no pudimos crearlo (carpeta de solo lectura), es
+            # preferible dejar entrar.
+            return not self.path.exists()
 
         try:
+            # msvcrt.locking bloquea desde la posicion actual, no el archivo
+            # entero: hay que ir al byte 0 o dos instancias podrian tomarlo.
+            self._handle.seek(0)
             if os.name == "nt":
                 import msvcrt
 
@@ -47,6 +54,13 @@ class InstanceLock:
         self._handle.flush()
         return True
 
+    def pid(self) -> str:
+        """Lee el PID del descriptor abierto: en Windows no se puede reabrir."""
+        if self._handle is None:
+            return ""
+        self._handle.seek(0)
+        return self._handle.read().strip()
+
     def release(self) -> None:
         if self._handle is None:
             return
@@ -65,3 +79,7 @@ class InstanceLock:
         finally:
             self._handle.close()
             self._handle = None
+            # En Windows el desbloqueo a veces tarda un instante; el
+            # siguiente arranque reutiliza el archivo.
+            with suppress(OSError):
+                self.path.unlink(missing_ok=True)

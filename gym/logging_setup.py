@@ -18,7 +18,7 @@ FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 def configure_logging(level: int = logging.INFO) -> None:
     root = logging.getLogger()
     root.setLevel(level)
-    root.handlers.clear()
+    _close_handlers(root)
 
     file_handler = RotatingFileHandler(
         logs_dir() / "gym.log", maxBytes=1_000_000, backupCount=5, encoding="utf-8"
@@ -33,6 +33,17 @@ def configure_logging(level: int = logging.INFO) -> None:
     # SQLAlchemy es muy conversador en INFO y ahogaria el resto del registro.
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("alembic").setLevel(logging.WARNING)
+
+
+def reset_logging() -> None:
+    """Cierra el archivo de log. En Windows pytest no puede borrar tmp si sigue abierto."""
+    _close_handlers(logging.getLogger())
+
+
+def _close_handlers(logger: logging.Logger) -> None:
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
 
 
 def install_exception_hook() -> None:
