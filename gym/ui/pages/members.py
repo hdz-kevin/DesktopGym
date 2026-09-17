@@ -12,7 +12,6 @@ from gym.services import plans as plans_service
 from gym.ui.dialogs.charge_form import ChargeDialog
 from gym.ui.dialogs.member_form import MemberFormDialog
 from gym.ui.dialogs.member_profile import MemberProfileDialog
-from gym.ui.dialogs.payment_history import PaymentHistoryDialog
 from gym.ui.main_window import Page
 from gym.ui.theme import DANGER, SUCCESS
 from gym.ui.widgets.common import (
@@ -84,7 +83,7 @@ class MembersPage(Page):
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Editar", self.edit_selected))
-        controls.addWidget(secondary_button("Historial", self.show_history))
+        controls.addWidget(secondary_button("Ver Perfil", self.show_profile))
         controls.addWidget(secondary_button("Renovar", self.charge_selected))
         controls.addWidget(primary_button("Nuevo socio", self.create_member))
 
@@ -94,7 +93,7 @@ class MembersPage(Page):
                 Column("Nombre", lambda m: m.name, stretch=True),
                 Column("Categoría", lambda m: m.plan_category.name, width=130),
                 Column("Plan", _plan_name, width=130),
-                Column("Vigencia", _expiry_text, width=160),
+                Column("Vigencia", _expiry_text, width=180),
                 Column(
                     "Estado",
                     lambda m: m.status.label(),
@@ -105,7 +104,7 @@ class MembersPage(Page):
             page_size=25,
             empty_text="No hay socios que coincidan con la búsqueda.",
         )
-        self.table.row_activated.connect(self._show_profile)
+        self.table.row_activated.connect(self.show_profile)
         self.table.page_changed.connect(lambda _: self.load())
 
         layout = QVBoxLayout(self)
@@ -176,13 +175,11 @@ class MembersPage(Page):
             self.window_ref.notify_success("Renovación aplicada.")
             self.refresh()
 
-    def show_history(self) -> None:
-        member = self._require_selection()
+    def show_profile(self, member: Member | None = None) -> None:
         if member is None:
-            return
-        PaymentHistoryDialog(member.id, self).exec()
-
-    def _show_profile(self, member: Member) -> None:
+            member = self._require_selection()
+            if member is None:
+                return
         MemberProfileDialog(member, self).exec()
 
     def _require_selection(self) -> Member | None:

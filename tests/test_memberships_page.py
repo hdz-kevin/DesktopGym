@@ -15,7 +15,7 @@ from gym.services import members as members_service
 from gym.services import payments as payments_service
 from gym.services import plans as service
 from gym.ui.dialogs.charge_form import ChargeDialog
-from gym.ui.dialogs.payment_history import PaymentHistoryDialog
+from gym.ui.dialogs.member_profile import MemberProfileDialog
 from gym.ui.main_window import MainWindow
 from gym.ui.pages.members import MembersPage
 from gym.ui.pages.plans import PlanCategoryDialog, PlanDialog, PlansPage
@@ -114,7 +114,7 @@ class TestMembersChargePage:
         page.refresh()
 
         page.charge_selected()
-        page.show_history()
+        page.show_profile()
 
 
 class TestChargeDialog:
@@ -171,7 +171,7 @@ class TestHistoryDialog:
         payments_service.charge(member_id, app_catalog["monthly_id"])
         payments_service.charge(member_id, app_catalog["monthly_id"])
 
-        dialog = PaymentHistoryDialog(member_id, window)
+        dialog = MemberProfileDialog(members_service.get_member(member_id), window)
         qtbot.addWidget(dialog)
 
         assert dialog.table.model.rowCount() == 2
@@ -205,7 +205,7 @@ class TestHistoryDialog:
         for _ in range(30):
             payments_service.charge(member_id, app_catalog["monthly_id"])
 
-        dialog = PaymentHistoryDialog(member_id, window)
+        dialog = MemberProfileDialog(members_service.get_member(member_id), window)
         qtbot.addWidget(dialog)
 
         assert dialog.payments_value.text() == "31"

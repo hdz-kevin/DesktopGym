@@ -125,7 +125,7 @@ class TestMembersPage:
 
         page.edit_selected()
         page.charge_selected()
-        page.show_history()
+        page.show_profile()
 
     def test_estado_vacio(self, qtbot, window):
         page = MembersPage(window)
@@ -353,11 +353,19 @@ class TestMemberProfileDialog:
         dialog = MemberProfileDialog(member, window)
         qtbot.addWidget(dialog)
 
+        assert dialog.table.model.rowCount() == 0
+        assert dialog.payments_value.text() == "0"
+        assert dialog.vigencia_value.text() == "—"
+
     def test_abre_para_socio_con_pago(self, qtbot, window, app_catalog):
         member_id = alta()
         dar_periodo(member_id, app_catalog, dias=10)
         dialog = MemberProfileDialog(service.get_member(member_id), window)
         qtbot.addWidget(dialog)
+
+        assert dialog.table.model.rowCount() == 1
+        assert dialog.payments_value.text() == "1"
+        assert dialog.vigencia_value.text().startswith("Vence en")
 
 
 class TestKioskPage:
