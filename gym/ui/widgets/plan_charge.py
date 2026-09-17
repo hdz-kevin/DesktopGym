@@ -1,6 +1,6 @@
 """Plan, fecha de inicio y vista previa de vigencia.
 
-Lo usan el alta de un socio y el cobro posterior, para no duplicar el combo,
+Lo usan el alta de un socio y la renovacion posterior, para no duplicar el combo,
 el calendario y el texto de vigencia.
 """
 

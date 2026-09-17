@@ -1,4 +1,4 @@
-"""Cobro de un plan al socio."""
+"""Renovacion de un plan del socio."""
 
 from __future__ import annotations
 
@@ -14,12 +14,12 @@ from gym.ui.widgets.plan_charge import PlanChargeFields
 
 
 class ChargeDialog(QDialog):
-    """Cobra un plan de la categoria del socio."""
+    """Renueva un plan de la categoria del socio."""
 
     def __init__(self, member: Member, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.member = member
-        self.setWindowTitle(f"Cobrar · {member.name}")
+        self.setWindowTitle(f"Renovar · {member.name}")
         self.setModal(True)
         self.setMinimumWidth(440)
 
@@ -34,7 +34,7 @@ class ChargeDialog(QDialog):
         self.start_input = self.charge_fields.start_input
         self.preview = self.charge_fields.preview
 
-        self.save_button = primary_button("Cobrar", self.accept)
+        self.save_button = primary_button("Renovar", self.accept)
         self.save_button.setDefault(True)
 
         buttons = QHBoxLayout()

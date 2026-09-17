@@ -11,7 +11,7 @@ superior de este repositorio.
 | Módulo | Atajo | Descripción |
 |---|---|---|
 | Bienvenida | `F1` | El socio teclea su código y el sistema le dice si puede pasar |
-| Socios | `F2` | Ficha, cobros, vigencia e historial de pagos |
+| Socios | `F2` | Ficha, renovaciones, vigencia e historial de pagos |
 | Visitas | `F3` | Entradas sueltas de quienes no son socios |
 | Planes | `F4` | Categorías y planes de precios |
 | Corte de caja | `F5` | Ingresos del día, la semana o el mes por concepto |

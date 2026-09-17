@@ -1,4 +1,4 @@
-"""Pantalla de socios: ficha, cobro, historial y filtros."""
+"""Pantalla de socios: ficha, renovacion, historial y filtros."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ class MembersPage(Page):
         self._search = ""
         self._status: MemberStatus | None = None
 
-        header = PageHeader("Socios", "Ficha, cobros y vigencia de los socios del gimnasio")
+        header = PageHeader("Socios", "Ficha, renovaciones y vigencia de los socios del gimnasio")
 
         self.stat_total = StatCard("Total")
         self.stat_active = StatCard("Activos")
@@ -85,7 +85,7 @@ class MembersPage(Page):
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Editar", self.edit_selected))
         controls.addWidget(secondary_button("Historial", self.show_history))
-        controls.addWidget(secondary_button("Cobrar", self.charge_selected))
+        controls.addWidget(secondary_button("Renovar", self.charge_selected))
         controls.addWidget(primary_button("Nuevo socio", self.create_member))
 
         self.table = PagedTable[Member](
@@ -173,7 +173,7 @@ class MembersPage(Page):
             return
         dialog = ChargeDialog(member, self)
         if dialog.exec():
-            self.window_ref.notify_success("Pago registrado.")
+            self.window_ref.notify_success("Renovación aplicada.")
             self.refresh()
 
     def show_history(self) -> None:
