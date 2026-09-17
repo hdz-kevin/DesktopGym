@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import logging
-
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout
 
 from gym.data.models import Member
@@ -11,7 +9,6 @@ from gym.domain.dates import humanize_delta
 from gym.domain.enums import MemberStatus
 from gym.services import members as service
 from gym.services import plans as plans_service
-from gym.services.errors import ServiceError
 from gym.ui.dialogs.charge_form import ChargeDialog
 from gym.ui.dialogs.member_form import MemberFormDialog
 from gym.ui.dialogs.member_profile import MemberProfileDialog
@@ -23,15 +20,11 @@ from gym.ui.widgets.common import (
     FilterChips,
     PageHeader,
     StatCard,
-    danger_button,
     primary_button,
     secondary_button,
 )
-from gym.ui.widgets.feedback import confirm
 from gym.ui.widgets.inputs import SearchBox
 from gym.ui.widgets.table import Column, PagedTable
-
-logger = logging.getLogger(__name__)
 
 STATUS_COLORS = {
     MemberStatus.ACTIVE: SUCCESS,
@@ -91,9 +84,8 @@ class MembersPage(Page):
         controls.addWidget(self.search_box)
         controls.addWidget(self.chips, 1)
         controls.addWidget(secondary_button("Editar", self.edit_selected))
-        controls.addWidget(danger_button("Eliminar", self.delete_selected))
         controls.addWidget(secondary_button("Historial", self.show_history))
-        controls.addWidget(primary_button("Cobrar", self.charge_selected))
+        controls.addWidget(secondary_button("Cobrar", self.charge_selected))
         controls.addWidget(primary_button("Nuevo socio", self.create_member))
 
         self.table = PagedTable[Member](
@@ -192,29 +184,6 @@ class MembersPage(Page):
 
     def _show_profile(self, member: Member) -> None:
         MemberProfileDialog(member, self).exec()
-
-    def delete_selected(self) -> None:
-        member = self._require_selection()
-        if member is None:
-            return
-
-        if not confirm(
-            self,
-            "Eliminar socio",
-            f"¿Eliminar a {member.name}?\n\nEsta acción no se puede deshacer.",
-            confirm_text="Eliminar",
-            destructive=True,
-        ):
-            return
-
-        try:
-            service.delete_member(member.id)
-        except ServiceError as error:
-            self.window_ref.notify_error(str(error))
-            return
-
-        self.window_ref.notify_success("Socio eliminado.")
-        self.refresh()
 
     def _require_selection(self) -> Member | None:
         member = self.table.selected_record()

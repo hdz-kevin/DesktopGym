@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from sqlalchemy import func, or_, select
@@ -16,6 +17,7 @@ from gym.data.models import Member, Payment, Plan, PlanCategory
 from gym.domain.enums import MemberStatus
 from gym.domain.rules import generate_member_code
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
+from gym.services.payments import add_payment
 
 logger = logging.getLogger(__name__)
 
@@ -104,30 +106,48 @@ def _require_category(session, category_id: int) -> None:
         raise ValidationError({"plan_category": "La categoría seleccionada ya no existe."})
 
 
+def _insert_member(session, form: MemberForm) -> Member:
+    _require_category(session, form.plan_category_id)
+    code = generate_member_code(
+        lambda candidate: (
+            session.scalar(select(func.count()).select_from(Member).where(Member.code == candidate))
+            > 0
+        )
+    )
+    member = Member(
+        name=form.name.strip(),
+        code=code,
+        plan_category_id=form.plan_category_id,
+        photo=_store_photo(form.photo_jpeg) if form.photo_jpeg is not None else None,
+    )
+    session.add(member)
+    session.flush()
+    return member
+
+
 def create_member(form: MemberForm) -> int:
     errors = validate(form)
     if errors:
         raise ValidationError(errors)
 
     with session_scope() as session:
-        _require_category(session, form.plan_category_id)
-        code = generate_member_code(
-            lambda candidate: (
-                session.scalar(
-                    select(func.count()).select_from(Member).where(Member.code == candidate)
-                )
-                > 0
-            )
-        )
-        member = Member(
-            name=form.name.strip(),
-            code=code,
-            plan_category_id=form.plan_category_id,
-            photo=_store_photo(form.photo_jpeg) if form.photo_jpeg is not None else None,
-        )
-        session.add(member)
-        session.flush()
+        member = _insert_member(session, form)
         logger.info("Socio creado: %s (%s)", member.name, member.code)
+        return member.id
+
+
+def register_member(form: MemberForm, plan_id: int, start: date | None = None) -> int:
+    """Alta de recepcion: socio y primer pago en la misma transaccion."""
+    errors = validate(form)
+    if not plan_id:
+        errors["plan"] = "El plan es obligatorio."
+    if errors:
+        raise ValidationError(errors)
+
+    with session_scope() as session:
+        member = _insert_member(session, form)
+        add_payment(session, member, plan_id, start)
+        logger.info("Socio registrado: %s (%s)", member.name, member.code)
         return member.id
 
 

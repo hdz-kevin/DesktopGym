@@ -26,6 +26,41 @@ def _load_plan(session, plan_id: int) -> Plan:
     return plan
 
 
+def add_payment(session, member: Member, plan_id: int, start: date | None = None) -> Payment:
+    """Crea el pago sobre la sesion abierta por el caso de uso.
+
+    Asi el alta de un socio nuevo puede registrar el primer cobro en la misma
+    transaccion: si el plan no sirve, no queda un socio a medias.
+    """
+    plan = _load_plan(session, plan_id)
+    if plan.plan_category_id != member.plan_category_id:
+        raise ValidationError({"plan": "Ese plan no corresponde a la categoría del socio."})
+
+    if start is not None:
+        begins = start_of_day(start)
+    else:
+        last_end = session.scalar(
+            select(func.max(Payment.end_date)).where(Payment.member_id == member.id)
+        )
+        now = datetime.now()
+        if last_end and last_end > now:
+            begins = start_of_day(last_end) + timedelta(days=1)
+        else:
+            begins = start_of_day(now)
+
+    payment = Payment(
+        member_id=member.id,
+        plan_id=plan.id,
+        start_date=begins,
+        end_date=period_end_date(begins, plan.unit, plan.amount),
+        price_paid_cents=plan.price_cents,
+    )
+    session.add(payment)
+    session.flush()
+    logger.info("Pago %s registrado para el socio %s", payment.id, member.id)
+    return payment
+
+
 def charge(member_id: int, plan_id: int, start: date | None = None) -> int:
     """Registra un pago del socio.
 
@@ -38,31 +73,4 @@ def charge(member_id: int, plan_id: int, start: date | None = None) -> int:
         member = session.get(Member, member_id)
         if member is None:
             raise NotFoundError("El socio ya no existe.")
-
-        plan = _load_plan(session, plan_id)
-        if plan.plan_category_id != member.plan_category_id:
-            raise ValidationError({"plan": "Ese plan no corresponde a la categoría del socio."})
-
-        if start is not None:
-            begins = start_of_day(start)
-        else:
-            last_end = session.scalar(
-                select(func.max(Payment.end_date)).where(Payment.member_id == member_id)
-            )
-            now = datetime.now()
-            if last_end and last_end > now:
-                begins = start_of_day(last_end) + timedelta(days=1)
-            else:
-                begins = start_of_day(now)
-
-        payment = Payment(
-            member_id=member_id,
-            plan_id=plan.id,
-            start_date=begins,
-            end_date=period_end_date(begins, plan.unit, plan.amount),
-            price_paid_cents=plan.price_cents,
-        )
-        session.add(payment)
-        session.flush()
-        logger.info("Pago %s registrado para el socio %s", payment.id, member_id)
-        return payment.id
+        return add_payment(session, member, plan_id, start).id

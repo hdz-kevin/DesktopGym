@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 
 from gym.data.database import session_scope
 from gym.data.models import Member, Payment
-from gym.domain.enums import MemberStatus
+from gym.domain.enums import DurationUnit, MemberStatus
 from gym.services import members as service
+from gym.services import plans as plans_service
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
 from tests.conftest import default_category_id
 
@@ -69,6 +70,44 @@ class TestCrear:
         with pytest.raises(ValidationError) as exc:
             alta(nombre)
         assert "name" in exc.value.errors
+
+
+class TestRegistrar:
+    def test_deja_al_socio_activo_con_un_pago(self, app_db, app_catalog):
+        member_id = service.register_member(_form(), app_catalog["monthly_id"])
+        member = service.get_member(member_id)
+        assert member.status is MemberStatus.ACTIVE
+        assert len(member.payments) == 1
+        assert member.payments[0].plan_id == app_catalog["monthly_id"]
+
+    def test_rechaza_sin_plan(self, app_db):
+        with pytest.raises(ValidationError) as exc:
+            service.register_member(_form(), 0)
+        assert "plan" in exc.value.errors
+        assert service.list_members()[1] == 0
+
+    def test_rechaza_plan_de_otra_categoria(self, app_db, app_catalog):
+        student_id = plans_service.create_plan_category("Estudiante")
+        student_plan = plans_service.create_plan(
+            student_id, "Mensual", 1, DurationUnit.MONTH, 35000
+        )
+        with pytest.raises(ValidationError) as exc:
+            service.register_member(
+                _form(plan_category_id=app_catalog["category_id"]),
+                student_plan,
+            )
+        assert "plan" in exc.value.errors
+        assert service.list_members()[1] == 0
+
+    def test_plan_inexistente_no_deja_socio(self, app_db):
+        with pytest.raises(NotFoundError):
+            service.register_member(_form(), 999)
+        assert service.list_members()[1] == 0
+
+    def test_acepta_fecha_de_inicio(self, app_db, app_catalog):
+        inicio = date.today() - timedelta(days=3)
+        member_id = service.register_member(_form(), app_catalog["monthly_id"], start=inicio)
+        assert service.get_member(member_id).payments[0].start_date.date() == inicio
 
 
 class TestFoto:

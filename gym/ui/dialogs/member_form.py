@@ -23,6 +23,7 @@ from gym.ui.pages.helpers import avatar_pixmap
 from gym.ui.widgets.common import primary_button, secondary_button
 from gym.ui.widgets.feedback import ToastKind, ToastManager
 from gym.ui.widgets.inputs import Field
+from gym.ui.widgets.plan_charge import PlanChargeFields
 
 
 class MemberFormDialog(QDialog):
@@ -33,8 +34,10 @@ class MemberFormDialog(QDialog):
         self._photo_jpeg: bytes | None = None
         self._remove_photo = False
         self.toasts = ToastManager(self)
+        self.charge_fields: PlanChargeFields | None = None
 
-        self.setWindowTitle("Editar socio" if member else "Nuevo socio")
+        creating = member is None
+        self.setWindowTitle("Nuevo socio" if creating else "Editar socio")
         self.setModal(True)
         self.setMinimumWidth(460)
 
@@ -63,7 +66,7 @@ class MemberFormDialog(QDialog):
         photo_box.setLayout(photo_row)
         self.photo_field = Field("Foto", photo_box, self)
 
-        self.save_button = primary_button("Guardar", self.accept)
+        self.save_button = primary_button("Registrar" if creating else "Guardar", self.accept)
         self.save_button.setDefault(True)
         cancel_button = secondary_button("Cancelar", self.reject)
 
@@ -76,6 +79,14 @@ class MemberFormDialog(QDialog):
         layout.setSpacing(14)
         layout.addWidget(self.name_field)
         layout.addWidget(self.category_field)
+        if creating:
+            self.charge_fields = PlanChargeFields(
+                self,
+                category_id=self.category_input.currentData(),
+            )
+            self.plan_input = self.charge_fields.plan_input
+            self.category_input.currentIndexChanged.connect(self._on_category_changed)
+            layout.addWidget(self.charge_fields)
         layout.addWidget(self.photo_field)
         layout.addSpacing(6)
         layout.addLayout(buttons)
@@ -84,6 +95,11 @@ class MemberFormDialog(QDialog):
             self._load(member)
         self._render_avatar()
         self.name_input.setFocus()
+
+    def _on_category_changed(self) -> None:
+        if self.charge_fields is None:
+            return
+        self.charge_fields.set_category(self.category_input.currentData())
 
     def _load(self, member: Member) -> None:
         self.name_input.setText(member.name)
@@ -137,13 +153,25 @@ class MemberFormDialog(QDialog):
         )
 
     def accept(self) -> None:
-        for field in (self.name_field, self.category_field, self.photo_field):
+        fields = [self.name_field, self.category_field, self.photo_field]
+        if self.charge_fields is not None:
+            fields.append(self.charge_fields.plan_field)
+        for field in fields:
             field.clear_error()
 
         form = self.build_form()
         try:
             if self.member_id is None:
-                self.member_id = service.create_member(form)
+                assert self.charge_fields is not None
+                plan_id = self.charge_fields.plan_id()
+                if plan_id is None:
+                    self.charge_fields.plan_field.show_error(
+                        "Configura al menos un plan en Planes."
+                    )
+                    return
+                self.member_id = service.register_member(
+                    form, plan_id, self.charge_fields.explicit_start()
+                )
             else:
                 service.update_member(self.member_id, form)
         except ValidationError as error:
@@ -157,6 +185,8 @@ class MemberFormDialog(QDialog):
             "plan_category": self.category_field,
             "photo": self.photo_field,
         }
+        if self.charge_fields is not None:
+            mapping["plan"] = self.charge_fields.plan_field
         for key, message in errors.items():
             field = mapping.get(key)
             if field:

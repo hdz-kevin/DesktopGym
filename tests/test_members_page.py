@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QDate, Qt
 
 from gym.config import Settings
 from gym.data.database import session_scope
 from gym.data.models import Payment
-from gym.domain.enums import MemberStatus
+from gym.domain.enums import DurationUnit, MemberStatus
 from gym.services import members as service
+from gym.services import plans as plans_service
 from gym.ui.dialogs.camera_capture import (
     CameraCaptureDialog,
     choose_camera,
@@ -123,7 +124,8 @@ class TestMembersPage:
         page.refresh()
 
         page.edit_selected()
-        page.delete_selected()
+        page.charge_selected()
+        page.show_history()
 
     def test_estado_vacio(self, qtbot, window):
         page = MembersPage(window)
@@ -135,14 +137,67 @@ class TestMembersPage:
 
 
 class TestMemberFormDialog:
-    def test_guarda_un_socio_nuevo(self, qtbot, window):
+    def test_guarda_un_socio_nuevo(self, qtbot, window, app_catalog):
         dialog = MemberFormDialog(window)
         qtbot.addWidget(dialog)
         dialog.name_input.setText("Carlos Mendez")
         dialog.accept()
 
         assert dialog.member_id is not None
-        assert service.get_member(dialog.member_id).name == "Carlos Mendez"
+        member = service.get_member(dialog.member_id)
+        assert member.name == "Carlos Mendez"
+        assert member.status is MemberStatus.ACTIVE
+        assert len(member.payments) == 1
+        assert member.payments[0].plan_id == app_catalog["monthly_id"]
+
+    def test_el_boton_de_alta_es_registrar(self, qtbot, window):
+        dialog = MemberFormDialog(window)
+        qtbot.addWidget(dialog)
+        assert dialog.save_button.text() == "Registrar"
+        assert "Vigencia:" in dialog.charge_fields.preview.text()
+
+    def test_al_cambiar_categoria_recarga_los_planes(self, qtbot, window, app_catalog):
+        student_id = plans_service.create_plan_category("Estudiante")
+        student_plan = plans_service.create_plan(student_id, "Semanal", 1, DurationUnit.WEEK, 15000)
+
+        dialog = MemberFormDialog(window)
+        qtbot.addWidget(dialog)
+
+        assert dialog.plan_input.findData(student_plan) >= 0
+        assert dialog.plan_input.findData(app_catalog["monthly_id"]) < 0
+
+        dialog.category_input.setCurrentIndex(
+            dialog.category_input.findData(app_catalog["category_id"])
+        )
+        assert dialog.plan_input.findData(app_catalog["monthly_id"]) >= 0
+        assert dialog.plan_input.findData(student_plan) < 0
+
+    def test_sin_planes_no_registra(self, qtbot, window):
+        student_id = plans_service.create_plan_category("Estudiante")
+        dialog = MemberFormDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Carlos Mendez")
+        dialog.category_input.setCurrentIndex(dialog.category_input.findData(student_id))
+        dialog.accept()
+
+        assert dialog.result() == 0
+        assert dialog.charge_fields.plan_field.error.isVisibleTo(dialog)
+        assert "Planes" in dialog.charge_fields.plan_field.error.text()
+        assert service.list_members()[1] == 0
+
+    def test_registra_con_fecha_de_inicio_elegida(self, qtbot, window, app_catalog):
+        inicio = date.today() - timedelta(days=5)
+        dialog = MemberFormDialog(window)
+        qtbot.addWidget(dialog)
+        dialog.name_input.setText("Carlos Mendez")
+        dialog.plan_input.setCurrentIndex(dialog.plan_input.findData(app_catalog["biweekly_id"]))
+        dialog.charge_fields.custom_start.setChecked(True)
+        dialog.charge_fields.start_input.setDate(QDate(inicio.year, inicio.month, inicio.day))
+        dialog.accept()
+
+        pago = service.get_member(dialog.member_id).payments[0]
+        assert pago.plan_id == app_catalog["biweekly_id"]
+        assert pago.start_date.date() == inicio
 
     def test_muestra_error_en_el_campo_invalido(self, qtbot, window):
         dialog = MemberFormDialog(window)
@@ -163,6 +218,8 @@ class TestMemberFormDialog:
 
         assert dialog.name_input.text() == "Ana Lopez"
         assert dialog.category_input.currentData() == default_category_id()
+        assert dialog.charge_fields is None
+        assert dialog.save_button.text() == "Guardar"
 
     def test_editar_conserva_el_codigo(self, qtbot, window):
         member_id = alta("Ana Lopez")
