@@ -9,7 +9,6 @@ import pytest
 from gym.config import Settings
 from gym.data.database import session_scope
 from gym.data.models import Payment
-from gym.domain.enums import MemberGender
 from gym.services import cash as service
 from gym.services import members as members_service
 from gym.services import payments as payments_service
@@ -34,7 +33,6 @@ def alta(nombre="Ana Lopez") -> int:
     return members_service.create_member(
         members_service.MemberForm(
             name=nombre,
-            gender=MemberGender.FEMALE,
             plan_category_id=default_category_id(),
         )
     )

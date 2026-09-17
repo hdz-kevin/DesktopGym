@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from gym.domain.enums import DurationUnit, MemberGender
+from gym.domain.enums import DurationUnit
 from gym.services import members as members_service
 from gym.services import payments as payments_service
 from gym.services import plans as service
@@ -14,7 +14,6 @@ def alta(nombre: str = "Ana Lopez", category_id: int | None = None) -> int:
     return members_service.create_member(
         members_service.MemberForm(
             name=nombre,
-            gender=MemberGender.FEMALE,
             plan_category_id=category_id or default_category_id(),
         )
     )

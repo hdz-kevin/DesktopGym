@@ -19,7 +19,6 @@ from gym.data.database import session_scope
 from gym.data.models import Member, Payment, Plan, PlanCategory, Product, ProductSale, Sale, Visit
 from gym.data.schema import populate_seed_catalog
 from gym.domain.dates import add_months, start_of_day
-from gym.domain.enums import MemberGender
 from gym.services import members as members_service
 from gym.services import payments as payments_service
 from gym.services import plans as plans_service
@@ -40,39 +39,39 @@ class SeedSummary:
     sales: int
 
 
-_MEMBERS: list[tuple[str, MemberGender, date | None]] = [
-    ("Ana Lucia Ramirez", MemberGender.FEMALE, date(1995, 3, 14)),
-    ("Carlos Mendoza", MemberGender.MALE, date(1988, 11, 2)),
-    ("Sofia Herrera", MemberGender.FEMALE, date(2001, 7, 22)),
-    ("Diego Navarro", MemberGender.MALE, date(2004, 1, 9)),
-    ("Valeria Cruz", MemberGender.FEMALE, date(2003, 5, 30)),
-    ("Luis Ortega", MemberGender.MALE, date(1979, 9, 18)),
-    ("Mariana Soto", MemberGender.FEMALE, date(1992, 12, 5)),
-    ("Jorge Pena", MemberGender.MALE, date(1985, 4, 27)),
-    ("Roberto Diaz", MemberGender.MALE, date(1972, 8, 11)),
-    ("Patricia Vega", MemberGender.FEMALE, date(1990, 2, 16)),
-    ("Andres Molina", MemberGender.MALE, date(1998, 6, 3)),
-    ("Elena Rios", MemberGender.FEMALE, date(1983, 10, 21)),
-    ("Pablo Jimenez", MemberGender.MALE, date(1996, 1, 28)),
-    ("Lucia Fernandez", MemberGender.FEMALE, date(1999, 4, 8)),
-    ("Hector Salazar", MemberGender.MALE, None),
-    ("Carmen Nunez", MemberGender.FEMALE, date(1976, 7, 19)),
-    ("Fernanda Gil", MemberGender.FEMALE, date(1994, 9, 1)),
-    ("Miguel Angel Torres", MemberGender.MALE, date(2002, 11, 13)),
-    ("Daniela Pacheco", MemberGender.FEMALE, date(1997, 3, 25)),
-    ("Ricardo Avila", MemberGender.MALE, date(1981, 5, 7)),
-    ("Isabel Leon", MemberGender.FEMALE, date(1993, 8, 29)),
-    ("Tomas Ibarra", MemberGender.MALE, date(2000, 12, 12)),
-    ("Gabriela Ramos", MemberGender.FEMALE, date(1987, 2, 4)),
-    ("Oscar Beltran", MemberGender.MALE, None),
-    ("Monica Fuentes", MemberGender.FEMALE, date(1991, 6, 17)),
-    ("Raul Espinoza", MemberGender.MALE, date(1968, 10, 6)),
-    ("Alejandra Campos", MemberGender.FEMALE, date(2005, 1, 23)),
-    ("Francisco Reyes", MemberGender.MALE, date(1984, 7, 14)),
-    ("Natalia Vargas", MemberGender.FEMALE, date(1996, 9, 9)),
-    ("Eduardo Castillo", MemberGender.MALE, date(1975, 3, 31)),
-    ("Paola Miranda", MemberGender.FEMALE, None),
-    ("Ivan Guerrero", MemberGender.MALE, date(2003, 11, 20)),
+_MEMBERS: list[str] = [
+    "Ana Lucia Ramirez",
+    "Carlos Mendoza",
+    "Sofia Herrera",
+    "Diego Navarro",
+    "Valeria Cruz",
+    "Luis Ortega",
+    "Mariana Soto",
+    "Jorge Pena",
+    "Roberto Diaz",
+    "Patricia Vega",
+    "Andres Molina",
+    "Elena Rios",
+    "Pablo Jimenez",
+    "Lucia Fernandez",
+    "Hector Salazar",
+    "Carmen Nunez",
+    "Fernanda Gil",
+    "Miguel Angel Torres",
+    "Daniela Pacheco",
+    "Ricardo Avila",
+    "Isabel Leon",
+    "Tomas Ibarra",
+    "Gabriela Ramos",
+    "Oscar Beltran",
+    "Monica Fuentes",
+    "Raul Espinoza",
+    "Alejandra Campos",
+    "Francisco Reyes",
+    "Natalia Vargas",
+    "Eduardo Castillo",
+    "Paola Miranda",
+    "Ivan Guerrero",
 ]
 
 _PRODUCTS: list[tuple[str, int, int]] = [
@@ -174,13 +173,11 @@ def _seed_members() -> dict[str, int]:
     general_id = categories["General"]
     student_id = categories["Estudiante"]
     ids: dict[str, int] = {}
-    for name, gender, birth_date in _MEMBERS:
+    for name in _MEMBERS:
         category_id = student_id if name in _STUDENT_MEMBERS else general_id
         ids[name] = members_service.create_member(
             members_service.MemberForm(
                 name=name,
-                gender=gender,
-                birth_date=birth_date,
                 plan_category_id=category_id,
             )
         )
@@ -238,8 +235,6 @@ def _seed_payments(ids: dict[str, int], catalog: dict[str, int]) -> int:
         monica.id,
         members_service.MemberForm(
             name=monica.name,
-            gender=monica.gender,
-            birth_date=monica.birth_date,
             plan_category_id=_category_ids()["General"],
         ),
     )

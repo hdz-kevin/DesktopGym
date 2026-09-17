@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
 from gym.data.database import session_scope
 from gym.data.models import Member, Payment
-from gym.domain.enums import MemberGender, MemberStatus
+from gym.domain.enums import MemberStatus
 from gym.services import members as service
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
 from tests.conftest import default_category_id
@@ -15,9 +15,7 @@ from tests.conftest import default_category_id
 def alta(nombre: str = "Ana Lopez", **kwargs) -> int:
     form = service.MemberForm(
         name=nombre,
-        gender=kwargs.pop("gender", MemberGender.FEMALE),
         plan_category_id=kwargs.pop("plan_category_id", None) or default_category_id(),
-        birth_date=kwargs.pop("birth_date", None),
         photo_jpeg=kwargs.pop("photo_jpeg", None),
     )
     return service.create_member(form)
@@ -29,7 +27,6 @@ def _form(nombre: str = "Ana Lopez", member_id: int | None = None, **kwargs) -> 
         category_id = service.get_member(member_id).plan_category_id
     return service.MemberForm(
         name=nombre,
-        gender=kwargs.pop("gender", MemberGender.FEMALE),
         plan_category_id=category_id or default_category_id(),
         **kwargs,
     )
@@ -72,11 +69,6 @@ class TestCrear:
         with pytest.raises(ValidationError) as exc:
             alta(nombre)
         assert "name" in exc.value.errors
-
-    def test_rechaza_fecha_de_nacimiento_futura(self, app_db):
-        with pytest.raises(ValidationError) as exc:
-            alta(birth_date=date.today() + timedelta(days=1))
-        assert "birth_date" in exc.value.errors
 
 
 class TestFoto:
@@ -148,23 +140,15 @@ class TestEditarYBorrar:
         member_id = alta()
         service.update_member(
             member_id,
-            _form(
-                "Ana Maria Lopez",
-                member_id=member_id,
-                birth_date=date(1995, 3, 20),
-            ),
+            _form("Ana Maria Lopez", member_id=member_id),
         )
         member = service.get_member(member_id)
         assert member.name == "Ana Maria Lopez"
-        assert member.birth_date == date(1995, 3, 20)
-        assert member.age is not None
 
     def test_editar_no_cambia_el_codigo(self, app_db):
         member_id = alta()
         original = service.get_member(member_id).code
-        service.update_member(
-            member_id, _form("Otro Nombre", member_id=member_id, gender=MemberGender.MALE)
-        )
+        service.update_member(member_id, _form("Otro Nombre", member_id=member_id))
         assert service.get_member(member_id).code == original
 
     def test_borra_socio_sin_historial(self, app_db):
@@ -182,7 +166,7 @@ class TestEditarYBorrar:
 
     def test_editar_socio_inexistente(self, app_db):
         with pytest.raises(NotFoundError):
-            service.update_member(999, _form("Fantasma", gender=MemberGender.MALE))
+            service.update_member(999, _form("Fantasma"))
 
 
 class TestListadoYFiltros:

@@ -19,14 +19,6 @@ class DurationUnit(str, Enum):
         return singular if quantity == 1 else plural
 
 
-class MemberGender(str, Enum):
-    MALE = "male"
-    FEMALE = "female"
-
-    def label(self) -> str:
-        return "Masculino" if self is MemberGender.MALE else "Femenino"
-
-
 class MemberStatus(str, Enum):
     """Estado del socio derivado de sus pagos."""
 

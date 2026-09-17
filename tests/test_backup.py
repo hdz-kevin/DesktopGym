@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 import pytest
 
 from gym.config import Settings, backups_dir, database_path
-from gym.domain.enums import MemberGender
 from gym.services import backup as service
 from gym.services import members as members_service
 from gym.ui.main_window import MainWindow
@@ -26,7 +25,6 @@ def alta(nombre="Ana Lopez") -> int:
     return members_service.create_member(
         members_service.MemberForm(
             name=nombre,
-            gender=MemberGender.FEMALE,
             plan_category_id=default_category_id(),
         )
     )

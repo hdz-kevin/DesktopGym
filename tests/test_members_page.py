@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt
 from gym.config import Settings
 from gym.data.database import session_scope
 from gym.data.models import Payment
-from gym.domain.enums import MemberGender, MemberStatus
+from gym.domain.enums import MemberStatus
 from gym.services import members as service
 from gym.ui.dialogs.camera_capture import (
     CameraCaptureDialog,
@@ -35,9 +35,9 @@ def window(qtbot, app_db, app_catalog):
     return window
 
 
-def alta(nombre="Ana Lopez", gender=MemberGender.FEMALE) -> int:
+def alta(nombre="Ana Lopez") -> int:
     return service.create_member(
-        service.MemberForm(name=nombre, gender=gender, plan_category_id=default_category_id())
+        service.MemberForm(name=nombre, plan_category_id=default_category_id())
     )
 
 
@@ -162,7 +162,7 @@ class TestMemberFormDialog:
         qtbot.addWidget(dialog)
 
         assert dialog.name_input.text() == "Ana Lopez"
-        assert dialog.build_form().gender is MemberGender.FEMALE
+        assert dialog.category_input.currentData() == default_category_id()
 
     def test_editar_conserva_el_codigo(self, qtbot, window):
         member_id = alta("Ana Lopez")

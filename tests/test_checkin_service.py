@@ -7,7 +7,6 @@ import pytest
 from gym.data.database import session_scope
 from gym.data.models import Payment
 from gym.domain.dates import humanize_delta
-from gym.domain.enums import MemberGender
 from gym.services import members as members_service
 from gym.services.checkin import verify_code
 from tests.conftest import default_category_id
@@ -17,7 +16,6 @@ def alta(nombre: str = "Ana Lopez") -> tuple[int, str]:
     member_id = members_service.create_member(
         members_service.MemberForm(
             name=nombre,
-            gender=MemberGender.FEMALE,
             plan_category_id=default_category_id(),
         )
     )

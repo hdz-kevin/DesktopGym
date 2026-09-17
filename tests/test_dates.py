@@ -4,7 +4,6 @@ import pytest
 
 from gym.domain.dates import (
     add_months,
-    age_from,
     day_bounds,
     end_of_day,
     format_date,
@@ -68,12 +67,6 @@ def test_humaniza_la_distancia(dias, esperado):
 
     ahora = datetime(2025, 6, 1, 12, 0)
     assert humanize_delta(ahora + timedelta(days=dias), ahora) == esperado
-
-
-def test_edad_a_partir_de_fecha_de_nacimiento():
-    assert age_from(date(2000, 6, 15), date(2025, 6, 15)) == 25
-    assert age_from(date(2000, 6, 16), date(2025, 6, 15)) == 24
-    assert age_from(None) is None
 
 
 def test_limites_de_dia_semana_y_mes():

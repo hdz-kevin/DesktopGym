@@ -123,7 +123,7 @@ usan clases de servicio.
 ## Trampas de Qt ya encontradas
 
 - `QComboBox.currentData()` devuelve el valor crudo, no el `Enum`. Reconstrúyelo
-  (`MemberGender(combo.currentData())`).
+  (`DurationUnit(combo.currentData())`).
 - Limpiar un campo por código dispara `textChanged`. Si eso reinicia la pantalla
   (pasó en el kiosco), bloquea señales con `blockSignals` mientras lo limpias.
 - Los toasts se reposicionan al cambiar el tamaño de la ventana; se comprueba

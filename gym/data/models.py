@@ -8,12 +8,11 @@ para filtrar por "activo" o "vencido".
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
-    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -29,8 +28,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from gym.data.types import EnumValue
-from gym.domain.dates import age_from
-from gym.domain.enums import DurationUnit, MemberGender, MemberStatus
+from gym.domain.enums import DurationUnit, MemberStatus
 from gym.domain.rules import initials
 
 
@@ -51,8 +49,6 @@ class Member(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     code: Mapped[str] = mapped_column(String(10), nullable=False, unique=True)
-    gender: Mapped[MemberGender] = mapped_column(EnumValue(MemberGender, 10), nullable=False)
-    birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     photo: Mapped[str | None] = mapped_column(String(255), nullable=True)
     plan_category_id: Mapped[int] = mapped_column(
         ForeignKey("plan_categories.id", ondelete="RESTRICT"), nullable=False
@@ -86,10 +82,6 @@ class Member(Base, TimestampMixin):
             (has_active_payment, MemberStatus.ACTIVE.value),
             else_=MemberStatus.EXPIRED.value,
         )
-
-    @property
-    def age(self) -> int | None:
-        return age_from(self.birth_date)
 
     @property
     def initials(self) -> str:

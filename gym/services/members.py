@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 
 from sqlalchemy import func, or_, select
@@ -14,7 +13,7 @@ from sqlalchemy.orm import selectinload
 from gym.config import photos_dir
 from gym.data.database import session_scope
 from gym.data.models import Member, Payment, Plan, PlanCategory
-from gym.domain.enums import MemberGender, MemberStatus
+from gym.domain.enums import MemberStatus
 from gym.domain.rules import generate_member_code
 from gym.services.errors import NotFoundError, ServiceError, ValidationError
 
@@ -27,9 +26,7 @@ JPEG_MAGIC = b"\xff\xd8"
 @dataclass
 class MemberForm:
     name: str
-    gender: MemberGender
     plan_category_id: int
-    birth_date: date | None = None
     photo_jpeg: bytes | None = None
     remove_photo: bool = False
 
@@ -66,12 +63,6 @@ def validate(form: MemberForm) -> dict[str, str]:
 
     if not form.plan_category_id:
         errors["plan_category"] = "La categoría es obligatoria."
-
-    if form.birth_date:
-        if form.birth_date > date.today():
-            errors["birth_date"] = "La fecha de nacimiento no puede ser futura."
-        elif form.birth_date.year < 1900:
-            errors["birth_date"] = "Revisa la fecha de nacimiento."
 
     if form.photo_jpeg is not None:
         data = form.photo_jpeg
@@ -131,8 +122,6 @@ def create_member(form: MemberForm) -> int:
         member = Member(
             name=form.name.strip(),
             code=code,
-            gender=form.gender,
-            birth_date=form.birth_date,
             plan_category_id=form.plan_category_id,
             photo=_store_photo(form.photo_jpeg) if form.photo_jpeg is not None else None,
         )
@@ -154,8 +143,6 @@ def update_member(member_id: int, form: MemberForm) -> None:
 
         _require_category(session, form.plan_category_id)
         member.name = form.name.strip()
-        member.gender = form.gender
-        member.birth_date = form.birth_date
         member.plan_category_id = form.plan_category_id
 
         if form.remove_photo:

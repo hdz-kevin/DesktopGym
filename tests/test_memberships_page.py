@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QLabel
 
 from gym.config import Settings
 from gym.domain.dates import format_range, humanize_delta
-from gym.domain.enums import DurationUnit, MemberGender, MemberStatus
+from gym.domain.enums import DurationUnit, MemberStatus
 from gym.services import members as members_service
 from gym.services import payments as payments_service
 from gym.services import plans as service
@@ -33,7 +33,6 @@ def alta(nombre="Ana Lopez") -> int:
     return members_service.create_member(
         members_service.MemberForm(
             name=nombre,
-            gender=MemberGender.FEMALE,
             plan_category_id=default_category_id(),
         )
     )

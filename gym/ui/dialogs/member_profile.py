@@ -36,15 +36,6 @@ class MemberProfileDialog(QDialog):
         details.setVerticalSpacing(14)
         details.setHorizontalSpacing(16)
         details.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        details.addRow(self._label("Género"), QLabel(member.gender.label(), self))
-        details.addRow(
-            self._label("Edad"),
-            QLabel(f"{member.age} años" if member.age is not None else "No registrada", self),
-        )
-        details.addRow(
-            self._label("Nacimiento"),
-            QLabel(format_date(member.birth_date) if member.birth_date else "No registrada", self),
-        )
         details.addRow(self._label("Categoría"), QLabel(member.plan_category.name, self))
         details.addRow(self._label("Plan"), QLabel(member.current_plan_label, self))
         details.addRow(
@@ -54,7 +45,6 @@ class MemberProfileDialog(QDialog):
                 self,
             ),
         )
-        details.addRow(self._label("Socio desde"), QLabel(format_date(member.created_at), self))
 
         details_card = Card(self)
         details_card.body.addLayout(details)

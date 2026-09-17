@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from gym.domain.enums import DurationUnit, MemberGender, MemberStatus
+from gym.domain.enums import DurationUnit, MemberStatus
 from gym.services import members as members_service
 from gym.services import payments as service
 from gym.services import plans as plans_service
@@ -16,7 +16,6 @@ def alta(nombre: str = "Ana Lopez", category_id: int | None = None) -> int:
     return members_service.create_member(
         members_service.MemberForm(
             name=nombre,
-            gender=MemberGender.FEMALE,
             plan_category_id=category_id or default_category_id(),
         )
     )
@@ -125,7 +124,6 @@ class TestRenovar:
             member_id,
             members_service.MemberForm(
                 name=member.name,
-                gender=member.gender,
                 plan_category_id=app_catalog["category_id"],
             ),
         )

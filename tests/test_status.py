@@ -16,7 +16,7 @@ from gym.domain.enums import MemberStatus
 
 
 def _member(session, nombre: str, code: str, category) -> Member:
-    member = Member(name=nombre, code=code, gender="male", plan_category_id=category.id)
+    member = Member(name=nombre, code=code, plan_category_id=category.id)
     session.add(member)
     session.flush()
     return member

@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import date
-
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
-    QDateEdit,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -19,7 +15,6 @@ from PySide6.QtWidgets import (
 )
 
 from gym.data.models import Member
-from gym.domain.enums import MemberGender
 from gym.services import members as service
 from gym.services import plans as plans_service
 from gym.services.errors import ValidationError
@@ -47,33 +42,10 @@ class MemberFormDialog(QDialog):
         self.name_input.setPlaceholderText("Nombre completo")
         self.name_field = Field("Nombre", self.name_input, self)
 
-        self.gender_input = QComboBox(self)
-        for gender in MemberGender:
-            self.gender_input.addItem(gender.label(), gender)
-        self.gender_field = Field("Género", self.gender_input, self)
-
         self.category_input = QComboBox(self)
         for category in plans_service.list_plan_categories():
             self.category_input.addItem(category.name, category.id)
         self.category_field = Field("Categoría", self.category_input, self)
-
-        self.birth_input = QDateEdit(self)
-        self.birth_input.setCalendarPopup(True)
-        self.birth_input.setDisplayFormat("dd/MM/yyyy")
-        self.birth_input.setMaximumDate(QDate.currentDate())
-        self.birth_input.setDate(QDate(2000, 1, 1))
-        self.birth_input.setEnabled(False)
-
-        self.has_birth = QCheckBox("Registrar fecha de nacimiento", self)
-        self.has_birth.toggled.connect(self.birth_input.setEnabled)
-
-        birth_box = QWidget(self)
-        birth_layout = QVBoxLayout(birth_box)
-        birth_layout.setContentsMargins(0, 0, 0, 0)
-        birth_layout.setSpacing(6)
-        birth_layout.addWidget(self.has_birth)
-        birth_layout.addWidget(self.birth_input)
-        self.birth_field = Field("Fecha de nacimiento", birth_box, self)
 
         self.avatar = QLabel(self)
         self.avatar.setFixedSize(72, 72)
@@ -103,9 +75,7 @@ class MemberFormDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
         layout.addWidget(self.name_field)
-        layout.addWidget(self.gender_field)
         layout.addWidget(self.category_field)
-        layout.addWidget(self.birth_field)
         layout.addWidget(self.photo_field)
         layout.addSpacing(6)
         layout.addLayout(buttons)
@@ -117,17 +87,9 @@ class MemberFormDialog(QDialog):
 
     def _load(self, member: Member) -> None:
         self.name_input.setText(member.name)
-        index = self.gender_input.findData(member.gender)
-        if index >= 0:
-            self.gender_input.setCurrentIndex(index)
         category_index = self.category_input.findData(member.plan_category_id)
         if category_index >= 0:
             self.category_input.setCurrentIndex(category_index)
-        if member.birth_date:
-            self.has_birth.setChecked(True)
-            self.birth_input.setDate(
-                QDate(member.birth_date.year, member.birth_date.month, member.birth_date.day)
-            )
 
     def _render_avatar(self) -> None:
         if self._photo_jpeg is not None:
@@ -167,23 +129,15 @@ class MemberFormDialog(QDialog):
         self._render_avatar()
 
     def build_form(self) -> service.MemberForm:
-        birth: date | None = None
-        if self.has_birth.isChecked():
-            qdate = self.birth_input.date()
-            birth = date(qdate.year(), qdate.month(), qdate.day())
-
         return service.MemberForm(
             name=self.name_input.text(),
-            # Qt devuelve el dato del combo como texto plano, no como Enum.
-            gender=MemberGender(self.gender_input.currentData()),
             plan_category_id=self.category_input.currentData() or 0,
-            birth_date=birth,
             photo_jpeg=self._photo_jpeg,
             remove_photo=self._remove_photo,
         )
 
     def accept(self) -> None:
-        for field in (self.name_field, self.category_field, self.birth_field, self.photo_field):
+        for field in (self.name_field, self.category_field, self.photo_field):
             field.clear_error()
 
         form = self.build_form()
@@ -201,7 +155,6 @@ class MemberFormDialog(QDialog):
         mapping = {
             "name": self.name_field,
             "plan_category": self.category_field,
-            "birth_date": self.birth_field,
             "photo": self.photo_field,
         }
         for key, message in errors.items():

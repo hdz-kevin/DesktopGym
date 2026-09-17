@@ -114,16 +114,6 @@ def humanize_delta(target: datetime, reference: datetime | None = None, parts: i
     return " ".join(f"{n} {singular if n == 1 else plural}" for n, singular, plural in chosen)
 
 
-def age_from(birth_date: date | None, reference: date | None = None) -> int | None:
-    if birth_date is None:
-        return None
-    reference = reference or date.today()
-    years = reference.year - birth_date.year
-    if (reference.month, reference.day) < (birth_date.month, birth_date.day):
-        years -= 1
-    return max(0, years)
-
-
 def day_bounds(day: date) -> tuple[datetime, datetime]:
     return start_of_day(day), end_of_day(day)
 
