@@ -30,6 +30,7 @@ PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#AppExe}
+SetupIconFile=gym.ico
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"

@@ -21,7 +21,12 @@ def spec_text() -> str:
 
 
 def test_existen_los_archivos_de_empaquetado():
-    for path in (SPEC, INSTALLER, ROOT / "packaging" / "build.py"):
+    for path in (
+        SPEC,
+        INSTALLER,
+        ROOT / "packaging" / "build.py",
+        ROOT / "packaging" / "make_icon.py",
+    ):
         assert path.exists(), f"Falta {path.name}"
 
 
@@ -70,6 +75,12 @@ def test_el_instalador_ofrece_acceso_directo():
     texto = INSTALLER.read_text(encoding="utf-8")
     assert "desktopicon" in texto
     assert "{autodesktop}" in texto
+
+
+def test_el_instalador_usa_el_icono_generico():
+    texto = INSTALLER.read_text(encoding="utf-8")
+    assert "SetupIconFile=gym.ico" in texto
+    assert (ROOT / "packaging" / "make_icon.py").exists()
 
 
 def test_el_nombre_del_programa_no_es_el_del_gimnasio():
