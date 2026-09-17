@@ -17,6 +17,7 @@ from PySide6.QtMultimedia import (
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import QApplication, QDialog, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from gym.config import APP_NAME
 from gym.ui.widgets.common import primary_button, secondary_button
 from gym.ui.widgets.feedback import ToastKind, ToastManager, alert
 
@@ -26,7 +27,7 @@ MAX_PHOTO_EDGE = 720
 JPEG_QUALITY = 85
 PREVIEW_WIDTH = 640
 PREVIEW_HEIGHT = 480
-CAMERA_USAGE_DESCRIPTION = "TecnoGym toma la foto del socio para identificarlo en recepción."
+CAMERA_USAGE_DESCRIPTION = f"{APP_NAME} toma la foto del socio para identificarlo en recepción."
 
 
 VIRTUAL_CAMERA_MARKERS = (

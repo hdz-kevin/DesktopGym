@@ -11,6 +11,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from gym.config import APP_NAME
+
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "packaging" / "gym.spec"
 DIST = ROOT / "dist"
@@ -22,6 +24,11 @@ def project_version() -> str:
     from gym import __version__
 
     return __version__
+
+
+def executable_name() -> str:
+    suffix = ".exe" if sys.platform == "win32" else ""
+    return f"{APP_NAME}{suffix}"
 
 
 def run(command: list[str]) -> None:
@@ -39,8 +46,7 @@ def build_executable() -> Path:
     print(f"Version {project_version()}")
     run([sys.executable, "-m", "PyInstaller", "--noconfirm", str(SPEC)])
 
-    name = "TecnoGym.exe" if sys.platform == "win32" else "TecnoGym"
-    executable = DIST / name
+    executable = DIST / executable_name()
     if not executable.exists():
         raise SystemExit(f"No se generó el ejecutable esperado en {executable}")
 
@@ -58,12 +64,19 @@ def build_installer() -> None:
         raise SystemExit("No se encontró 'iscc'. Instala Inno Setup 6 y agrégalo al PATH.")
 
     version = project_version()
-    run([iscc, f"/DAppVersion={version}", str(ROOT / "packaging" / "installer.iss")])
+    run(
+        [
+            iscc,
+            f"/DAppName={APP_NAME}",
+            f"/DAppVersion={version}",
+            str(ROOT / "packaging" / "installer.iss"),
+        ]
+    )
     print(f"Instalador listo en {DIST / 'installer'} (v{version})")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Compila TecnoGym")
+    parser = argparse.ArgumentParser(description=f"Compila {APP_NAME}")
     parser.add_argument("--installer", action="store_true", help="También compilar el instalador")
     args = parser.parse_args()
 

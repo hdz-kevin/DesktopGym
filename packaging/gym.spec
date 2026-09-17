@@ -5,9 +5,15 @@ Las migraciones se incluyen como datos porque la aplicacion las ejecuta al
 arrancar; si no viajaran dentro del .exe, la base nunca se crearia.
 """
 
+import sys
 from pathlib import Path
 
 ROOT = Path(SPECPATH).parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from gym.config import APP_NAME
+
 ICON = ROOT / "packaging" / "gym.ico"
 
 a = Analysis(
@@ -52,7 +58,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="TecnoGym",
+    name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

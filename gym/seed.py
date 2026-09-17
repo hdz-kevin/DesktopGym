@@ -1,7 +1,7 @@
 """Herramienta de desarrollo para llenar o vaciar la base del usuario.
 
-Por defecto escribe en la SQLite real de TecnoGym (en macOS,
-~/Library/Application Support/TecnoGym/gym.sqlite). Cierra la aplicacion
+Por defecto escribe en la SQLite real de la aplicacion (en macOS,
+~/Library/Application Support/DevGym/gym.sqlite). Cierra la aplicacion
 antes: dos procesos no pueden pelearse el mismo archivo.
 """
 
@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from gym.config import database_path
+from gym.config import APP_NAME, database_path
 from gym.data.database import dispose_engine, init_engine
 from gym.data.schema import prepare_database
 from gym.services.seeder import reset_to_catalog, seed
@@ -21,7 +21,7 @@ from gym.single_instance import InstanceLock
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Llena o vacia la base de datos de TecnoGym. "
+            f"Llena o vacia la base de datos de {APP_NAME}. "
             "Por defecto usa la del usuario, no una carpeta de demostracion."
         )
     )
@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     lock = InstanceLock()
     if not lock.acquire():
         print(
-            "El sistema está abierto. Cierra TecnoGym antes de cambiar los datos de prueba.",
+            f"El sistema está abierto. Cierra {APP_NAME} antes de cambiar los datos de prueba.",
             file=sys.stderr,
         )
         return 1

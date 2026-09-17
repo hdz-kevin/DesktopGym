@@ -7,7 +7,7 @@ import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from gym.config import Settings
+from gym.config import APP_NAME, Settings
 from gym.data.database import init_engine
 from gym.data.schema import prepare_database
 from gym.logging_setup import configure_logging, install_exception_hook
@@ -51,14 +51,14 @@ def main() -> int:
     install_exception_hook()
 
     app = QApplication(sys.argv)
-    app.setApplicationName("TecnoGym")
+    app.setApplicationName(APP_NAME)
     apply_appearance(app)
 
     lock = InstanceLock()
     if not lock.acquire():
         QMessageBox.warning(
             None,
-            "TecnoGym",
+            APP_NAME,
             "El sistema ya está abierto en otra ventana.\n\n"
             "Busca la ventana existente en la barra de tareas.",
         )
@@ -71,7 +71,7 @@ def main() -> int:
         logger.exception("No se pudo preparar la base de datos")
         QMessageBox.critical(
             None,
-            "TecnoGym",
+            APP_NAME,
             "No se pudo abrir la base de datos.\n\n"
             "Revisa el archivo de registro o restaura un respaldo reciente.",
         )

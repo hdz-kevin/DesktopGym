@@ -1,13 +1,16 @@
-; Instalador de TecnoGym para Windows (Inno Setup 6).
-; Compilar con packaging\build.py --installer, que pasa /DAppVersion desde
-; gym.__version__. A mano: iscc /DAppVersion=X.Y.Z packaging\installer.iss
+; Instalador de DevGym para Windows (Inno Setup 6).
+; Compilar con packaging\build.py --installer, que pasa /DAppName y /DAppVersion
+; desde gym.config.APP_NAME y gym.__version__.
+; A mano: iscc /DAppName=DevGym /DAppVersion=X.Y.Z packaging\installer.iss
 
-#define AppName "TecnoGym"
+#ifndef AppName
+  #error Compila con packaging/build.py --installer para tomar el nombre del programa.
+#endif
 #ifndef AppVersion
   #error Compila con packaging/build.py --installer para tomar la version del proyecto.
 #endif
-#define AppPublisher "TecnoGym"
-#define AppExe "TecnoGym.exe"
+#define AppPublisher AppName
+#define AppExe AppName + ".exe"
 
 [Setup]
 AppId={{8F3C1A62-4D5E-4B7A-9C21-6E0D5F2A1B34}
@@ -17,7 +20,7 @@ AppPublisher={#AppPublisher}
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 OutputDir=..\dist\installer
-OutputBaseFilename=TecnoGym-Setup-{#AppVersion}
+OutputBaseFilename={#AppName}-Setup-{#AppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern

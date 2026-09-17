@@ -72,8 +72,17 @@ def test_el_instalador_ofrece_acceso_directo():
     assert "{autodesktop}" in texto
 
 
-def test_la_version_vive_en_un_solo_lugar():
-    """pyproject e Inno Setup no deben volver a tener un numero propio."""
+def test_el_nombre_del_programa_no_es_el_del_gimnasio():
+    """El .exe es DevGym; el kiosco y las paginas usan Settings.gym_name."""
+    from gym.config import APP_NAME, Settings
+
+    assert APP_NAME == "DevGym"
+    assert Settings().gym_name == "Gimnasio"
+    assert Settings().gym_name != APP_NAME
+
+
+def test_la_identidad_del_programa_vive_en_un_solo_lugar(spec_text):
+    """pyproject, el .exe e Inno Setup no deben volver a tener nombre o version propios."""
     import tomllib
 
     from gym import __version__
@@ -82,13 +91,26 @@ def test_la_version_vive_en_un_solo_lugar():
     assert pyproject["project"]["dynamic"] == ["version"]
     assert pyproject["tool"]["hatch"]["version"]["path"] == "gym/__init__.py"
     assert __version__, "Falta gym.__version__"
+    assert "name=APP_NAME" in spec_text
 
     build = (ROOT / "packaging" / "build.py").read_text(encoding="utf-8")
+    assert "/DAppName=" in build
     assert "/DAppVersion=" in build
 
     iss = INSTALLER.read_text(encoding="utf-8")
+    assert "#ifndef AppName" in iss
     assert "#ifndef AppVersion" in iss
+    assert "#define AppName" not in iss
     assert "#define AppVersion" not in iss
+
+
+def test_los_datos_viven_bajo_el_nombre_del_programa(monkeypatch, tmp_path):
+    import gym.config as config
+
+    monkeypatch.delenv("GYM_DATA_DIR", raising=False)
+    monkeypatch.setattr(config.sys, "platform", "win32")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    assert config.data_dir() == tmp_path / config.APP_NAME
 
 
 def test_la_ruta_de_recursos_funciona_empaquetada(monkeypatch, tmp_path):

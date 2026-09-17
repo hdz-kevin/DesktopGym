@@ -12,7 +12,9 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-APP_NAME = "TecnoGym"
+# Identidad del programa: instalador, .exe y carpeta de datos. El nombre que
+# ve el recepcionista en pantalla es Settings.gym_name, distinto en cada PC.
+APP_NAME = "DevGym"
 
 
 def data_dir() -> Path:
@@ -64,7 +66,7 @@ def resource_path(relative: str) -> Path:
 class Settings:
     """Ajustes editables por el usuario. Reemplaza a config/gym.php."""
 
-    gym_name: str = "TecnoGym"
+    gym_name: str = "Gimnasio"
     gym_address: str = "Av. Miguel Hidalgo #123, Teziutlán"
     visit_price_cents: int = 4000
     backup_on_exit: bool = True

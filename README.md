@@ -1,4 +1,4 @@
-# TecnoGym Escritorio
+# DevGym
 
 Sistema de gestión de gimnasio para Windows. Funciona sin internet y sin
 servidor: toda la información vive en la propia computadora de recepción.
@@ -29,7 +29,7 @@ Todo queda en la carpeta de datos del usuario, nunca junto al programa (en
 Windows `Program Files` es de solo lectura):
 
 ```
-%LOCALAPPDATA%\TecnoGym\
+%LOCALAPPDATA%\DevGym\
 ├── gym.sqlite      la base de datos
 ├── photos\         fotos de los socios
 ├── backups\        respaldos automáticos
@@ -60,7 +60,7 @@ uv run pytest                 # ejecutar las pruebas
 ```
 
 Para llenar la base **real** del usuario (en macOS,
-`~/Library/Application Support/TecnoGym/gym.sqlite`) con datos de prueba, o
+`~/Library/Application Support/DevGym/gym.sqlite`) con datos de prueba, o
 volverla al catálogo inicial de precios:
 
 ```bash
@@ -119,7 +119,7 @@ uv run python packaging/make_icon.py        # opcional, regenera el icono
 uv run python packaging/build.py --installer
 ```
 
-El ejecutable queda en `dist\TecnoGym.exe` y el instalador en
+El ejecutable queda en `dist\DevGym.exe` y el instalador en
 `dist\installer\`. El instalador no requiere permisos de administrador y ofrece
 crear un acceso directo en el escritorio.
 
